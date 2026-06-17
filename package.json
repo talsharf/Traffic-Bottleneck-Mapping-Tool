@@ -1,0 +1,21 @@
+{
+  "name": "local-traffic-od-mapping-tool",
+  "version": "3.1.0",
+  "description": "Local Traffic Origin-Destination (O-D) Mapping Tool v3.1",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y http-server -p 8080",
+    "dev": "npx -y http-server -p 8080"
+  },
+  "keywords": [
+    "traffic",
+    "gis",
+    "mapping",
+    "google-maps"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^25.1.0"
+  }
+}

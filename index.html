@@ -1,0 +1,4063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Traffic Origin-Destination (O-D) Mapping Tool v3.0</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CDN for Sandbox Mode geographical street maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <style>
+        :root {
+            --bg-dark: #0b0f19;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-header: rgba(31, 41, 55, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            
+            --accent-indigo: #6366f1;
+            --accent-indigo-hover: #4f46e5;
+            --accent-cyan: #06b6d4;
+            --accent-cyan-hover: #0891b2;
+            
+            --color-success: #10b981;
+            --color-success-bg: rgba(16, 185, 129, 0.15);
+            --color-danger: #ef4444;
+            --color-danger-bg: rgba(239, 68, 68, 0.15);
+            --color-warning: #f59e0b;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+            --font-body: 'Inter', system-ui, sans-serif;
+            
+            --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+            --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.15);
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --radius-sm: 4px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* App Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .header-title-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-family: var(--font-display);
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        header h1 {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            background: rgba(30, 41, 59, 0.6);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+        }
+
+        .status-dot.active {
+            background-color: var(--color-success);
+            box-shadow: 0 0 8px var(--color-success);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.running {
+            background-color: var(--color-warning);
+            box-shadow: 0 0 8px var(--color-warning);
+            animation: pulse 1.0s infinite;
+        }
+
+        /* 3-Column Layout */
+        .app-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: auto 380px 1fr;
+            gap: 16px;
+            padding: 16px;
+            height: calc(100vh - 57px);
+            box-sizing: border-box;
+            background-color: #070a13;
+        }
+
+        aside.glass-card {
+            width: 310px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s ease, padding 0.3s ease, margin 0.3s ease, border-width 0.3s ease, opacity 0.3s ease;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        aside.glass-card.collapsed {
+            width: 0 !important;
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-width: 0px !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Card Elements */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            transition: border-color 0.3s;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.15);
+        }
+
+        .card-header {
+            padding: 12px 16px;
+            background: var(--bg-card-header);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h2 {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 16px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Left Sidebar - Control Panel Form inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-wrapper input:focus {
+            border-color: var(--accent-indigo);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .input-wrapper input[type="password"] {
+            padding-right: 40px;
+        }
+
+        .toggle-password-btn {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .toggle-password-btn:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Checkbox groups */
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 10px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .checkbox-item input {
+            accent-color: var(--accent-indigo);
+            cursor: pointer;
+        }
+
+        .checkbox-item:hover {
+            color: var(--text-primary);
+        }
+
+        .inline-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Primary Button */
+        .btn {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 10px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-indigo), #5356e3);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, var(--accent-indigo-hover), #4346d5);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--color-danger-bg);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: var(--color-danger);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--color-danger);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+        }
+
+        .btn-secondary {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(30, 41, 59, 1);
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Mode Selection Toggle / Switcher */
+        .mode-switcher-segmented {
+            display: flex;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 2px;
+            position: relative;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 8px 10px;
+            border-radius: calc(var(--radius-md) - 2px);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            user-select: none;
+        }
+
+        .mode-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .mode-btn .icon {
+            font-size: 0.9rem;
+        }
+
+        /* Collapsible Configuration Panel */
+        .collapsible-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, margin 0.3s ease;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-md);
+            border: 1px solid transparent;
+            margin-bottom: 0;
+        }
+
+        .collapsible-panel.open {
+            max-height: 180px; /* Max height to fit inputs and button */
+            padding: 10px;
+            margin-bottom: 12px;
+            border-color: var(--border-color);
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        .api-config-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            color: var(--accent-indigo);
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: color 0.2s ease;
+            user-select: none;
+        }
+
+        .api-config-toggle:hover {
+            color: var(--accent-cyan);
+        }
+
+        /* Progress Statistics panel */
+        .progress-panel {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.75rem;
+        }
+
+        .progress-bar-container {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(to right, var(--accent-indigo), var(--accent-cyan));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-row {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+        }
+
+        .progress-row .value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Center Column: Table Grid & Details Card */
+        .center-column {
+            display: grid;
+            grid-template-rows: 1fr;
+            gap: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .center-column.details-open {
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .filter-select {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            outline: none;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .filter-select option {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent-indigo);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            padding: 8px 14px;
+            font-size: 0.75rem;
+        }
+
+        /* Middle Grid Card */
+        .grid-card {
+            flex: 1;
+            min-height: 0; /* Important for flex child scrolling */
+        }
+
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: #111827;
+            z-index: 1;
+            box-shadow: 0 1px 0 var(--border-color);
+        }
+
+        th {
+            padding: 12px 14px;
+            font-family: var(--font-display);
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        tr {
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        tbody tr.selected-row {
+            background: rgba(99, 102, 241, 0.12) !important;
+            border-left: 3px solid var(--accent-indigo);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background-color: var(--color-success-bg);
+            color: var(--color-success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-danger {
+            background-color: var(--color-danger-bg);
+            color: var(--color-danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .badge-info {
+            background-color: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+
+        /* Bottom Details Card */
+        .details-card {
+            min-height: 0;
+            height: 100%;
+        }
+
+        .route-details-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .route-details-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+        }
+
+        .steps-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-right: 4px;
+        }
+
+        .step-item {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 8px 10px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .step-item b {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .step-item:hover {
+            background: rgba(15, 23, 42, 0.7);
+            border-color: rgba(99, 102, 241, 0.3);
+            color: var(--text-primary);
+        }
+
+        .step-num {
+            font-weight: 700;
+            color: var(--accent-indigo);
+            min-width: 14px;
+        }
+
+        .export-btn-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 4px;
+        }
+
+        /* Right Column: GIS Map */
+        .map-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .map-wrapper {
+            flex: 1;
+            position: relative;
+            background: #0f172a;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-glow);
+        }
+
+        #google-map, #leaflet-map, #sandbox-map {
+            width: 100%;
+            height: 100%;
+            background-color: #0d121f;
+        }
+
+        .map-legend {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            font-size: 0.7rem;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+        }
+
+        /* Empty database state */
+        .empty-grid-msg {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            gap: 8px;
+        }
+
+        .empty-grid-msg svg {
+            width: 40px;
+            height: 40px;
+            stroke: var(--text-muted);
+        }
+
+        /* Custom Scrollbar for Sleek aesthetics */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Responsive Media Queries to prevent clipping on screens under 1200px */
+        @media (max-width: 1200px) {
+            body {
+                overflow-y: auto;
+                height: auto;
+            }
+            .app-container {
+                grid-template-columns: auto 1fr;
+                grid-template-rows: auto auto;
+                height: auto;
+                min-height: calc(100vh - 57px);
+            }
+            .map-column {
+                grid-column: span 2;
+                height: 500px;
+            }
+        }
+
+        @media (max-width: 800px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 450px;
+            }
+            .map-column {
+                grid-column: span 1;
+                height: 450px;
+            }
+            .center-column {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- App Header -->
+    <header>
+        <div class="header-title-container">
+            <button class="btn btn-secondary" id="btn-toggle-sidebar" style="padding: 6px 10px; font-size: 0.75rem; margin-right: 4px;">
+                <span id="toggle-sidebar-icon">◀</span> Control Panel
+            </button>
+            <div class="header-logo">Ω</div>
+            <div>
+                <h1>Local Traffic Origin-Destination (O-D) Mapping Tool</h1>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div id="run-message-toast" style="font-size: 0.8rem; color: var(--text-primary); background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; border-radius: 20px; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease; transform: translateY(-5px); pointer-events: none; white-space: nowrap;"></div>
+            <div class="header-status">
+                <div id="status-indicator" class="status-dot"></div>
+                <span id="status-text">Engine Idle</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Dashboard -->
+    <div class="app-container">
+
+        <!-- Column 1: Control & Input Panel (Left) -->
+        <aside class="glass-card">
+            <div class="card-header">
+                <h2>Control Panel</h2>
+            </div>
+            <div class="card-body">
+                
+                <!-- Hidden checkbox to keep javascript logic completely compatible -->
+                <input type="checkbox" id="sandbox-checkbox" checked style="display: none;">
+
+                <!-- Map Engine Mode segmented switcher -->
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label style="margin-bottom: 6px; font-size: 0.8rem; display: block;">Map Engine Mode</label>
+                    <div class="mode-switcher-segmented">
+                        <button type="button" class="mode-btn active" id="btn-mode-sandbox" data-mode="sandbox">
+                            <span class="icon">🤖</span> Sandbox
+                        </button>
+                        <button type="button" class="mode-btn" id="btn-mode-google" data-mode="google">
+                            <span class="icon">🗺️</span> Google Maps
+                        </button>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                        <a id="lnk-toggle-api-key" class="api-config-toggle" style="display: none;">⚙️ Configure Key</a>
+                    </div>
+                </div>
+
+                <!-- Collapsible API Key Configuration Panel -->
+                <div id="api-key-config-panel" class="collapsible-panel">
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <label for="api-key" style="font-size: 0.7rem; color: var(--text-secondary);">Google Maps API Key</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="api-key" placeholder="Enter API Key to load Google Maps" style="font-size: 0.75rem; padding: 6px 10px;">
+                            <button class="toggle-password-btn" id="toggle-api-key" type="button" style="padding: 6px;">👁️</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-load-map" style="font-size: 0.7rem; padding: 6px; width: 100%; margin-top: 4px;">
+                        Load Google Maps API
+                    </button>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin-bottom: 12px;">
+
+                <!-- Target Location Area -->
+                <div class="form-group">
+                    <label for="target-address">Target Location Address</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="target-address" value="Boulevard Saint-Joseph & Rue de Lanaudière, Montréal, QC" placeholder="e.g., Street intersection, City">
+                    </div>
+                </div>
+
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label for="proximity-threshold">Threshold (m)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="proximity-threshold" value="100" min="10" max="2000" step="10">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="street-token">Street Token</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="street-token" value="Saint-Joseph" placeholder="Auto-extracted" title="Case-insensitive substring match in turn instructions">
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border-color);">
+
+                <!-- Exponential Radius parameters -->
+                <div class="form-group">
+                    <label style="color: var(--accent-cyan); font-weight: 700;">Radius Settings</label>
+                    <div class="inline-group" style="grid-template-columns: 1fr 1fr 1.2fr; gap: 8px;">
+                        <div class="form-group">
+                            <label for="radius-start" style="font-size: 0.65rem;">Start (m)</label>
+                            <input type="number" id="radius-start" value="200" step="300" min="200" style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px; color: var(--text-primary); outline: none;">
+                        </div>
+                        <div class="form-group">
+                            <label for="radius-multiplier" style="font-size: 0.65rem;">Step</label>
+                            <input type="number" id="radius-multiplier" value="2.0" step="0.2" min="1.0" style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px; color: var(--text-primary); outline: none;">
+                        </div>
+                        <div class="form-group">
+                            <label for="radius-circles" style="font-size: 0.65rem;">Circles</label>
+                            <input type="number" id="radius-circles" value="5" min="1" max="50" step="1" style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 8px; color: var(--text-primary); outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Symmetry / Boundary Points settings -->
+                <div class="form-group">
+                    <label for="symmetry-points">Symmetry Points (Per Tier)</label>
+                    <select id="symmetry-points" class="filter-select" style="padding: 8px;">
+                        <option value="4">4 Points (4 Routes)</option>
+                        <option value="8" selected>8 Points (8 Routes)</option>
+                        <option value="12">12 Points (12 Routes)</option>
+                        <option value="16">16 Points (16 Routes)</option>
+                        <option value="24">24 Points (24 Routes)</option>
+                    </select>
+                </div>
+
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label for="max-points-limit">Max Points Cap</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="max-points-limit" value="100" min="4" max="1000" step="5" title="Limits the maximum total symmetry points allowed across all tiers combined.">
+                        </div>
+                    </div>
+                    <div class="form-group" style="justify-content: center; font-size: 0.75rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.4); padding: 6px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-top: 17px;">
+                        <div style="font-weight: 600;">Total Points: <span id="calc-total-points" style="color: var(--accent-cyan);">40</span></div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">Queries: <span id="calc-total-queries">120</span></div>
+                    </div>
+                </div>
+
+                <!-- Time Blocks to Analyze -->
+                <div class="form-group">
+                    <label>Time Blocks to Analyze</label>
+                    <div class="checkbox-grid">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="time-block" value="08:00" checked>
+                            08:00 (Morning)
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="time-block" value="12:00" checked>
+                            12:00 (Midday)
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="time-block" value="17:00" checked>
+                            17:00 (Evening)
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="time-block" value="20:00">
+                            20:00 (Night)
+                        </label>
+                    </div>
+                    <div class="input-wrapper" style="margin-top: 6px;">
+                        <input type="text" id="custom-hour" placeholder="Add custom hour (e.g. 09:30)" style="padding: 6px 10px; font-size: 0.75rem; width: calc(100% - 70px);">
+                        <button class="btn btn-secondary" id="btn-add-hour" style="padding: 6px 10px; font-size: 0.7rem; width: 64px; height: 29px; margin-left: 6px;" type="button">Add</button>
+                    </div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--border-color);">
+
+                <!-- Execution Actions -->
+                <div class="inline-group" style="margin-top: auto;">
+                    <button class="btn btn-primary" id="btn-start-run">Start Run</button>
+                    <button class="btn btn-danger" id="btn-halt-run" disabled>Halt</button>
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" id="btn-export-csv" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;" disabled>
+                        💾 Export CSV
+                    </button>
+                    <button class="btn btn-danger" id="btn-clear-database" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        🗑️ Clear DB
+                    </button>
+                </div>
+
+                <!-- Engine Progress Status -->
+                <div class="progress-panel" id="progress-panel" style="display: none;">
+                    <div class="progress-row">
+                        <span>Overall Progress:</span>
+                        <span id="progress-percentage" class="value">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="progress-bar"></div>
+                    </div>
+                    <div class="progress-row">
+                        <span>Queries:</span>
+                        <span id="progress-queries" class="value">0 / 0</span>
+                    </div>
+                    <div class="progress-row">
+                        <span>Current Tier:</span>
+                        <span id="progress-current-tier" class="value">-</span>
+                    </div>
+                    <div class="progress-row">
+                        <span>Est. Remaining:</span>
+                        <span id="progress-est-time" class="value">-</span>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Column 2: Dashboard Panel (Center) -->
+        <main class="center-column">
+            
+            <!-- Center Dashboard - Middle (IndexedDB Grid) -->
+            <div class="glass-card grid-card">
+                <div class="card-header" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 16px; align-items: stretch;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <h2>Routes</h2>
+                        <span id="record-count-display" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: normal; white-space: nowrap;">0 Routes</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label for="filter-property" style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted); margin: 0; white-space: nowrap;">Intersection:</label>
+                            <select id="filter-property" class="filter-select" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; background: rgba(31, 41, 55, 0.4); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; outline: none;">
+                                <option value="all">All Routes</option>
+                                <option value="yes">Passed: YES</option>
+                                <option value="no">Passed: NO</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label for="filter-time" style="font-size: 0.7rem; font-weight: 600; color: var(--text-muted); margin: 0; white-space: nowrap;">Time:</label>
+                            <select id="filter-time" class="filter-select" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; background: rgba(31, 41, 55, 0.4); border: 1px solid var(--border-color); color: var(--text-primary); cursor: pointer; outline: none;">
+                                <option value="all">All Day</option>
+                                <option value="early">Early Morning</option>
+                                <option value="midday">Midday</option>
+                                <option value="afternoon">Late Afternoon</option>
+                                <option value="other">Other/Night</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="log-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Hour</th>
+                                <th>Radius</th>
+                                <th>Passes?</th>
+                                <th>By</th>
+                                <th>Travel Time</th>
+                                <th style="width: 50px; text-align: center;">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                    <div class="empty-grid-msg" id="empty-grid-message">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                            <path d="M3 5V19A9 3 0 0 0 21 19V5"></path>
+                            <path d="M3 12A9 3 0 0 0 21 12"></path>
+                        </svg>
+                        <span>No records found in local Database log.</span>
+                        <span style="font-size: 0.75rem;">Configure research settings and click "Start Run" to fetch routing data.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Dashboard - Bottom (Details Panel) -->
+            <div class="glass-card details-card" id="details-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Route Details</h2>
+                    <button id="btn-close-details" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; line-height: 1; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" title="Close Panel">&times;</button>
+                </div>
+                <div class="card-body" style="padding: 12px; overflow: hidden;">
+                    <div class="route-details-placeholder" id="details-placeholder">
+                        Select an interactive row from the data grid above to inspect turn instructions and draw polyline geometry.
+                    </div>
+                    <div class="route-details-content" id="details-content" style="display: none; flex-direction: column; height: 100%;">
+                        <div class="route-details-meta" id="route-details-meta" style="margin-bottom: 8px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+                            <div><strong style="color: var(--accent-indigo); margin-right: 4px;">Start:</strong><span id="route-detail-start" style="color: var(--text-secondary);"></span></div>
+                            <div><strong style="color: var(--accent-indigo); margin-right: 4px;">End:</strong><span id="route-detail-end" style="color: var(--text-secondary);"></span></div>
+                            <div><strong style="color: var(--accent-indigo); margin-right: 4px;">Total:</strong><span id="route-detail-total" style="color: var(--accent-cyan); font-weight: 600;"></span></div>
+                        </div>
+                        <div class="steps-list" id="route-steps-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Steps filled dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Column 3: Interactive GIS Map View (Right) -->
+        <section class="map-column">
+            <!-- Map Tool Panel -->
+            <div class="glass-card map-tool-panel" style="margin-bottom: 8px; padding: 6px 12px; display: flex; flex-direction: row; align-items: center; gap: 16px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; cursor: pointer; color: var(--text-secondary); margin: 0; user-select: none;">
+                    <input type="checkbox" id="chk-show-all-routes" style="accent-color: var(--accent-indigo); cursor: pointer; width: 14px; height: 14px;">
+                    All
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; cursor: pointer; color: var(--text-secondary); margin: 0; user-select: none;">
+                    <input type="checkbox" id="chk-show-radius" checked style="accent-color: var(--accent-indigo); cursor: pointer; width: 14px; height: 14px;">
+                    Radius
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; cursor: pointer; color: var(--text-secondary); margin: 0; user-select: none;">
+                    <input type="checkbox" id="chk-show-sampled" style="accent-color: var(--accent-indigo); cursor: pointer; width: 14px; height: 14px;">
+                    Sampled
+                </label>
+            </div>
+            
+            <div class="map-wrapper">
+                <!-- Google Map Container -->
+                <div id="google-map"></div>
+                
+                <!-- Leaflet Map Container for Sandbox Mode -->
+                <div id="leaflet-map"></div>
+                
+                <!-- Sandbox Canvas Fallback -->
+                <canvas id="sandbox-map"></canvas>
+                
+                <!-- Legend overlay -->
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: var(--color-danger); box-shadow: 0 0 6px var(--color-danger);"></div>
+                        <span>Target Bottleneck</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="border: 2px dashed var(--accent-cyan); height: 12px; width: 12px; background: transparent;"></div>
+                        <span>Exponential Bands</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #fbbf24; box-shadow: 0 0 6px #fbbf24;"></div>
+                        <span>Active Selected Path</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: var(--color-success);"></div>
+                        <span>Passes Target Location</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #10b981; box-shadow: 0 0 6px #10b981;"></div>
+                        <span>Sampled Connection</span>
+                    </div>
+                    <div class="legend-item" id="sandbox-legend-indicator" style="color: var(--accent-cyan); font-weight: bold;">
+                        <span>⚙️ Sandbox Simulation Mode</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Application Code -->
+    <script>
+        // --- INDEXEDDB DATABASE MANAGER ---
+        class TrafficDBManager {
+            constructor() {
+                this.dbName = 'TrafficResearchDB';
+                this.storeName = 'TrafficResearchLog';
+                this.version = 1;
+                this.db = null;
+            }
+
+            open() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.version);
+                    request.onerror = (e) => {
+                        console.error("IndexedDB Open Error:", e.target.error);
+                        reject(e.target.error);
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                        }
+                    };
+                });
+            }
+
+            addRecord(record) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction([this.storeName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.add(record);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            getAllRecords() {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.getAll();
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            clearRecords() {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction([this.storeName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.clear();
+                    request.onsuccess = (e) => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+        }
+
+        // --- GLOBAL APP STATE ---
+        const db = new TrafficDBManager();
+        let activeRecords = [];
+        let engineHalted = false;
+        let isEngineRunning = false;
+        let googleMapsLoaded = false;
+        let map = null;
+        let selectedRecord = null;
+        let filteredRecords = [];
+        let activeOverlays = []; // Google Maps overlays (markers, circles, polylines)
+        let googleSymmetryMarkers = []; // Google Maps symmetry markers
+        let currentGoogleRouteStartMarkers = [];
+        let currentGoogleRouteEndMarkers = [];
+        let currentGoogleRouteArrowMarkers = [];
+        
+        // Leaflet Map instance and overlays for Sandbox Mode
+        let leafletMap = null;
+        let leafletTargetMarker = null;
+        let leafletCircles = [];
+        let leafletSymmetryMarkers = [];
+        let leafletSearchLine = null;
+        let leafletRoutePolylines = [];
+        let leafletSelectedRoutePolyline = null;
+        let leafletRouteStartMarkers = [];
+        let leafletRouteEndMarkers = [];
+        let leafletArrowheadPolygons = [];
+        let leafletSampledPolylines = [];
+        
+        // Coordinates for Montreal default (for Geocoding fallback/sandbox)
+        let baselineCoords = { lat: 45.5265, lng: -73.5877 }; 
+        let streetToken = "Saint-Joseph";
+
+        // --- MOCK CANVAS GIS MAP (FOR SANDBOX MODE) ---
+        class SandboxMapCanvas {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.center = { x: 0, y: 0 };
+                this.scale = 1.0;
+                this.width = 0;
+                this.height = 0;
+                
+                // Animation states
+                this.pulseRing = 0;
+                this.animFrame = null;
+                
+                // Initialize arrays before drawing
+                this.activeSearchLines = [];
+                this.selectedPathPoints = [];
+                this.tiers = [];
+                this.symmetryPoints = [];
+                
+                // Binding sizes
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.startAnimation();
+            }
+            
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.width = rect.width;
+                this.height = rect.height;
+                this.center = { x: this.width / 2, y: this.height / 2 };
+                // Scale so that 16km fits nicely
+                this.scale = Math.min(this.width, this.height) / 40; 
+                this.draw();
+            }
+            
+            setTiers(radiusList) {
+                this.tiers = radiusList;
+                this.draw();
+            }
+            
+            setSymmetryPoints(points) {
+                this.symmetryPoints = points;
+                this.draw();
+            }
+            
+            setActiveSearch(origin, destination) {
+                this.activeSearchLines = [origin, destination];
+                this.draw();
+            }
+            
+            clearActiveSearch() {
+                this.activeSearchLines = [];
+                this.draw();
+            }
+            
+            setSelectedPath(path) {
+                this.selectedPathPoints = path || [];
+                this.draw();
+            }
+            
+            clearSelectedPath() {
+                this.selectedPathPoints = [];
+                this.draw();
+            }
+            
+            latLngToCanvas(lat, lng) {
+                // Projection centered on Montreal center coords
+                const latDiff = lat - baselineCoords.lat;
+                const lngDiff = lng - baselineCoords.lng;
+                
+                // 1 deg lat is approx 111.3km
+                // 1 deg lng is approx 111.3 * cos(lat) km
+                const latKm = latDiff * 111.3;
+                const lngKm = lngDiff * 111.3 * Math.cos(baselineCoords.lat * Math.PI / 180);
+                
+                return {
+                    x: this.center.x + lngKm * this.scale,
+                    y: this.center.y - latKm * this.scale // invert Y axis for canvas
+                };
+            }
+            
+            draw() {
+                // Clear
+                this.ctx.fillStyle = '#0d121f';
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                // Draw Grid
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+                this.ctx.lineWidth = 1;
+                const gridSpacing = 40;
+                for (let x = 0; x < this.width; x += gridSpacing) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, 0);
+                    this.ctx.lineTo(x, this.height);
+                    this.ctx.stroke();
+                }
+                for (let y = 0; y < this.height; y += gridSpacing) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y);
+                    this.ctx.lineTo(this.width, y);
+                    this.ctx.stroke();
+                }
+                
+                // Draw Concentric Circles (Tiers)
+                this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+                
+                this.tiers.forEach(radius => {
+                    const rPixels = radius * this.scale;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.center.x, this.center.y, rPixels, 0, 2 * Math.PI);
+                    this.ctx.stroke();
+                    
+                    // Radius text labels
+                    this.ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+                    this.ctx.font = '9px var(--font-body)';
+                    this.ctx.fillText(`${radius} km`, this.center.x + rPixels + 4, this.center.y + 3);
+                });
+                this.ctx.setLineDash([]); // Reset dash
+                
+                // Draw Symmetry points
+                this.ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+                this.symmetryPoints.forEach(pt => {
+                    const canvasPt = this.latLngToCanvas(pt.lat, pt.lng);
+                    this.ctx.beginPath();
+                    this.ctx.arc(canvasPt.x, canvasPt.y, 4, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                });
+                
+                // Draw Active Search Lines
+                if (this.activeSearchLines.length === 2) {
+                    const oPt = this.latLngToCanvas(this.activeSearchLines[0].lat, this.activeSearchLines[0].lng);
+                    const dPt = this.latLngToCanvas(this.activeSearchLines[1].lat, this.activeSearchLines[1].lng);
+                    
+                    // Line between them
+                    this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.setLineDash([4, 4]);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(oPt.x, oPt.y);
+                    this.ctx.lineTo(dPt.x, dPt.y);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]);
+                    
+                    // Origin (Green) & Destination (Red) dots
+                    this.ctx.fillStyle = '#10b981';
+                    this.ctx.beginPath();
+                    this.ctx.arc(oPt.x, oPt.y, 6, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    this.ctx.fillStyle = '#ef4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(dPt.x, dPt.y, 6, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                }
+                
+                // Draw Selected Path Polyline
+                if (this.selectedPathPoints && this.selectedPathPoints.length > 0) {
+                    this.ctx.strokeStyle = '#fbbf24';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.shadowBlur = 8;
+                    this.ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
+                    this.ctx.beginPath();
+                    
+                    const firstPt = this.latLngToCanvas(this.selectedPathPoints[0].lat, this.selectedPathPoints[0].lng);
+                    this.ctx.moveTo(firstPt.x, firstPt.y);
+                    
+                    for (let i = 1; i < this.selectedPathPoints.length; i++) {
+                        const pt = this.latLngToCanvas(this.selectedPathPoints[i].lat, this.selectedPathPoints[i].lng);
+                        this.ctx.lineTo(pt.x, pt.y);
+                    }
+                    this.ctx.stroke();
+                    
+                    // Reset shadow
+                    this.ctx.shadowBlur = 0;
+                    
+                    // Draw start and end of selected path (start red, end green)
+                    const start = this.latLngToCanvas(this.selectedPathPoints[0].lat, this.selectedPathPoints[0].lng);
+                    const end = this.latLngToCanvas(this.selectedPathPoints[this.selectedPathPoints.length - 1].lat, this.selectedPathPoints[this.selectedPathPoints.length - 1].lng);
+                    
+                    // Draw green sampled straight line if checked
+                    const showSampled = document.getElementById('chk-show-sampled') && document.getElementById('chk-show-sampled').checked;
+                    if (showSampled && this.selectedPathPoints.length >= 2) {
+                        this.ctx.strokeStyle = '#10b981';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(start.x, start.y);
+                        this.ctx.lineTo(end.x, end.y);
+                        this.ctx.stroke();
+                    }
+                    
+                    this.ctx.fillStyle = '#ef4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(start.x, start.y, 7.5, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    this.ctx.fillStyle = '#10b981';
+                    this.ctx.beginPath();
+                    this.ctx.arc(end.x, end.y, 7.5, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                }
+                
+                // Draw Target Center (Bottleneck)
+                const showRadius = document.getElementById('chk-show-radius') && document.getElementById('chk-show-radius').checked;
+                if (showRadius) {
+                    // Pulsing glow ring
+                    this.ctx.strokeStyle = `rgba(239, 68, 68, ${1.0 - this.pulseRing})`;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.center.x, this.center.y, 10 + this.pulseRing * 15, 0, 2 * Math.PI);
+                    this.ctx.stroke();
+                    
+                    // Solid center pin
+                    this.ctx.fillStyle = '#ef4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.center.x, this.center.y, 6, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.stroke();
+                }
+            }
+            
+            startAnimation() {
+                const anim = () => {
+                    this.pulseRing += 0.015;
+                    if (this.pulseRing > 1) {
+                        this.pulseRing = 0;
+                    }
+                    this.draw();
+                    this.animFrame = requestAnimationFrame(anim);
+                };
+                anim();
+            }
+            
+            stopAnimation() {
+                if (this.animFrame) {
+                    cancelAnimationFrame(this.animFrame);
+                }
+            }
+        }
+
+        let sandboxMap = null;
+
+        // --- GEOLOCATION STREET NAME EXTRACTION UTILITY ---
+        function extractStreetToken(addressString) {
+            if (!addressString) return "";
+            // Split intersection by & or and or at or @
+            let firstPart = addressString.split(/[&@\+,]|\band\b|\bat\b/i)[0];
+            
+            // Clean up numbers, street terms (Eng/Fre) case-insensitively
+            // Match words like Boulevard, Blvd, Bd, Rue, St, Street, Avenue, Ave, Road, Rd, Autoroute, Chemin, Ch
+            const termsToRemove = [
+                /\b(boulevard|blvd|bd)\b/i,
+                /\b(avenue|ave)\b/i,
+                /\b(street|st|str)\b/i,
+                /\b(road|rd)\b/i,
+                /\b(drive|dr)\b/i,
+                /\b(lane|ln)\b/i,
+                /\b(court|ct)\b/i,
+                /\b(place|pl)\b/i,
+                /\b(highway|hwy)\b/i,
+                /\b(autoroute|chemin|ch)\b/i,
+                /\b(rue)\b/i,
+                /\b(de la|de l'|des|du|de|d'|l'|la|le)\b/i
+            ];
+            
+            let cleaned = firstPart;
+            termsToRemove.forEach(regex => {
+                cleaned = cleaned.replace(regex, "");
+            });
+            
+            // Remove digits at the start (house numbers)
+            cleaned = cleaned.replace(/^\d+\s+/g, "");
+            
+            // Clean extra spaces
+            cleaned = cleaned.trim().replace(/\s+/g, " ");
+            
+            return cleaned || firstPart.trim();
+        }
+
+        // Trigger auto-extraction on input changes and save to localStorage
+        document.getElementById('target-address').addEventListener('input', (e) => {
+            const token = extractStreetToken(e.target.value);
+            document.getElementById('street-token').value = token;
+            saveTargetAddressAndCoords(e.target.value, undefined);
+        });
+
+        // Trigger geocoding and map overlay updates on change (Tab out or press Enter)
+        document.getElementById('target-address').addEventListener('change', async (e) => {
+            const address = e.target.value.trim();
+            if (!address) return;
+            
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            
+            try {
+                if (isSandbox) {
+                    const coords = await geocodeAddressSandbox(address);
+                    baselineCoords = coords;
+                    saveTargetAddressAndCoords(address, coords);
+                    if (typeof L !== 'undefined' && leafletMap) {
+                        leafletMap.setView([baselineCoords.lat, baselineCoords.lng], 12);
+                    }
+                    updateMapVisualsFromSettings();
+                } else {
+                    if (googleMapsLoaded) {
+                        const coords = await geocodeAddressGoogle(address);
+                        baselineCoords = coords;
+                        saveTargetAddressAndCoords(address, coords);
+                        if (map) {
+                            map.setCenter(baselineCoords);
+                        }
+                        updateMapVisualsFromSettings();
+                    }
+                }
+            } catch (err) {
+                console.error("Geocoding on input change failed:", err);
+            }
+        });
+
+        // --- SPHERICAL MATH FOR COORDINATE GENERATION ---
+        // Generates coordinates at a given distance (km) and bearing (degrees) from a center LatLng
+        function getPointAtBearing(center, radiusKm, bearingDegrees) {
+            const R_earth = 6371.01; // Earth's mean radius in km
+            const delta = radiusKm / R_earth;
+            const theta = bearingDegrees * Math.PI / 180;
+            
+            const phi1 = center.lat * Math.PI / 180;
+            const lambda1 = center.lng * Math.PI / 180;
+            
+            const phi2 = Math.asin(
+                Math.sin(phi1) * Math.cos(delta) + 
+                Math.cos(phi1) * Math.sin(delta) * Math.cos(theta)
+            );
+            const lambda2 = lambda1 + Math.atan2(
+                Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
+                Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2)
+            );
+            
+            return {
+                lat: phi2 * 180 / Math.PI,
+                lng: lambda2 * 180 / Math.PI
+            };
+        }
+
+        // --- SEGMENT GEOMETRY PROJECTION ALGORITHM (STAGE 2 FILTER) ---
+        // Calculates the closest perpendicular distance in meters from point P to line segment AB
+        function getDistanceToSegment(P, A, B) {
+            // Earth coordinates flat approximation in meters centered at P
+            const latAvg = (A.lat + B.lat + P.lat) / 3 * Math.PI / 180;
+            const latMeters = 111300; // rough meters per degree lat
+            const lngMeters = 111300 * Math.cos(latAvg); // meters per degree lng
+            
+            // Project vectors in Cartesian meters relative to P
+            const ax = (A.lng - P.lng) * lngMeters;
+            const ay = (A.lat - P.lat) * latMeters;
+            
+            const bx = (B.lng - P.lng) * lngMeters;
+            const by = (B.lat - P.lat) * latMeters;
+            
+            // P is at (0, 0)
+            const px = 0;
+            const py = 0;
+            
+            const abx = bx - ax;
+            const aby = by - ay;
+            
+            const apx = px - ax;
+            const apy = py - ay;
+            
+            // Orthogonal projection parameter: t = (AP . AB) / |AB|^2
+            const abLenSq = abx * abx + aby * aby;
+            let t = 0;
+            if (abLenSq > 0) {
+                t = (apx * abx + apy * aby) / abLenSq;
+            }
+            
+            // Clamp t to segment bounds [0, 1]
+            t = Math.max(0, Math.min(1, t));
+            
+            // Closest point coordinates on segment AB in meters
+            const cx = ax + t * abx;
+            const cy = ay + t * aby;
+            
+            // Distance from P (0,0) to closest point (cx, cy)
+            return Math.sqrt(cx * cx + cy * cy);
+        }
+
+        // --- GOOGLE MAPS INTEGRATION API INJECTION ---
+        // Toggles visibility of API Key
+        document.getElementById('toggle-api-key').addEventListener('click', () => {
+            const input = document.getElementById('api-key');
+            if (input.type === 'password') {
+                input.type = 'text';
+                document.getElementById('toggle-api-key').innerText = '🔒';
+            } else {
+                input.type = 'password';
+                document.getElementById('toggle-api-key').innerText = '👁️';
+            }
+        });
+
+        function saveSettingsToLocalStorage() {
+            try {
+                localStorage.setItem('radius_start', document.getElementById('radius-start').value);
+                localStorage.setItem('radius_multiplier', document.getElementById('radius-multiplier').value);
+                localStorage.setItem('radius_circles', document.getElementById('radius-circles').value);
+                localStorage.setItem('symmetry_points', document.getElementById('symmetry-points').value);
+                localStorage.setItem('max_points_limit', document.getElementById('max-points-limit').value);
+                localStorage.setItem('proximity_threshold', document.getElementById('proximity-threshold').value);
+                localStorage.setItem('street_token', document.getElementById('street-token').value);
+                localStorage.setItem('show_radius', document.getElementById('chk-show-radius').checked ? 'true' : 'false');
+                localStorage.setItem('show_all_routes', document.getElementById('chk-show-all-routes').checked ? 'true' : 'false');
+                localStorage.setItem('show_sampled', document.getElementById('chk-show-sampled').checked ? 'true' : 'false');
+                localStorage.setItem('sandbox_mode', document.getElementById('sandbox-checkbox').checked ? 'true' : 'false');
+                
+                const hoursData = [];
+                const checkboxes = document.querySelectorAll('input[name="time-block"]');
+                checkboxes.forEach(cb => {
+                    hoursData.push({
+                        value: cb.value,
+                        checked: cb.checked
+                    });
+                });
+                localStorage.setItem('time_blocks_data', JSON.stringify(hoursData));
+            } catch (err) {
+                console.warn("localStorage is not available to save settings:", err);
+            }
+        }
+
+        function saveTargetAddressAndCoords(address, coords) {
+            try {
+                if (address !== undefined) {
+                    localStorage.setItem('target_address', address);
+                }
+                if (coords !== undefined) {
+                    localStorage.setItem('baseline_coords', JSON.stringify(coords));
+                }
+            } catch (err) {
+                console.warn("localStorage is not available to save target address/coords:", err);
+            }
+        }
+
+        // Load API Key and Target Address from localStorage
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Restore control panel collapse state
+            try {
+                const sidebarCollapsed = localStorage.getItem('sidebar_collapsed');
+                if (sidebarCollapsed === 'true') {
+                    const sidebar = document.querySelector('aside.glass-card');
+                    sidebar.classList.add('collapsed');
+                    document.getElementById('toggle-sidebar-icon').innerText = '▶';
+                    
+                    // Invalidate sizes after a brief delay to allow DOM layout to settle
+                    setTimeout(() => {
+                        const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                        if (isSandbox) {
+                            if (typeof L !== 'undefined' && leafletMap) {
+                                leafletMap.invalidateSize();
+                            }
+                            if (sandboxMap) {
+                                sandboxMap.resize();
+                            }
+                        } else {
+                            if (googleMapsLoaded && map) {
+                                google.maps.event.trigger(map, 'resize');
+                            }
+                        }
+                    }, 400);
+                }
+            } catch (e) {}
+
+
+            const savedKey = localStorage.getItem('gmaps_api_key');
+            if (savedKey) {
+                document.getElementById('api-key').value = savedKey;
+            }
+            
+            const savedAddress = localStorage.getItem('target_address');
+            if (savedAddress) {
+                document.getElementById('target-address').value = savedAddress;
+                // update street token
+                const token = extractStreetToken(savedAddress);
+                document.getElementById('street-token').value = token;
+            }
+            
+            const savedCoords = localStorage.getItem('baseline_coords');
+            if (savedCoords) {
+                try {
+                    baselineCoords = JSON.parse(savedCoords);
+                } catch (e) {}
+            }
+            
+            // Load saved settings from localStorage
+            try {
+                const savedRadiusStart = localStorage.getItem('radius_start');
+                if (savedRadiusStart) {
+                    let val = parseFloat(savedRadiusStart);
+                    if (val === 310 || val === 300) {
+                        val = 200;
+                        localStorage.setItem('radius_start', '200');
+                    }
+                    document.getElementById('radius-start').value = val;
+                }
+                
+                const savedRadiusMultiplier = localStorage.getItem('radius_multiplier');
+                if (savedRadiusMultiplier) document.getElementById('radius-multiplier').value = savedRadiusMultiplier;
+                
+                const savedRadiusCircles = localStorage.getItem('radius_circles');
+                if (savedRadiusCircles) document.getElementById('radius-circles').value = savedRadiusCircles;
+                
+                const savedSymmetryPoints = localStorage.getItem('symmetry_points');
+                if (savedSymmetryPoints) document.getElementById('symmetry-points').value = savedSymmetryPoints;
+                
+                const savedMaxPointsLimit = localStorage.getItem('max_points_limit');
+                if (savedMaxPointsLimit) document.getElementById('max-points-limit').value = savedMaxPointsLimit;
+                
+                const savedProximityThreshold = localStorage.getItem('proximity_threshold');
+                if (savedProximityThreshold) document.getElementById('proximity-threshold').value = savedProximityThreshold;
+                
+                const savedStreetToken = localStorage.getItem('street_token');
+                if (savedStreetToken) document.getElementById('street-token').value = savedStreetToken;
+                
+                const savedShowRadius = localStorage.getItem('show_radius');
+                if (savedShowRadius !== null) document.getElementById('chk-show-radius').checked = (savedShowRadius === 'true');
+                
+                const savedShowAllRoutes = localStorage.getItem('show_all_routes');
+                if (savedShowAllRoutes !== null) document.getElementById('chk-show-all-routes').checked = (savedShowAllRoutes === 'true');
+                
+                const savedShowSampled = localStorage.getItem('show_sampled');
+                if (savedShowSampled !== null) document.getElementById('chk-show-sampled').checked = (savedShowSampled === 'true');
+                
+                const savedSandboxMode = localStorage.getItem('sandbox_mode');
+                if (savedSandboxMode !== null) document.getElementById('sandbox-checkbox').checked = (savedSandboxMode === 'true');
+                
+                const savedTimeBlocksData = localStorage.getItem('time_blocks_data');
+                if (savedTimeBlocksData) {
+                    const hoursData = JSON.parse(savedTimeBlocksData);
+                    const grid = document.querySelector('.checkbox-grid');
+                    grid.innerHTML = ''; // Clear default ones
+                    
+                    hoursData.forEach(item => {
+                        const label = document.createElement('label');
+                        label.className = 'checkbox-item';
+                        let suffix = "";
+                        if (item.value === "08:00") suffix = " (Morning)";
+                        else if (item.value === "12:00") suffix = " (Midday)";
+                        else if (item.value === "17:00") suffix = " (Evening)";
+                        else if (item.value === "20:00") suffix = " (Night)";
+                        
+                        label.innerHTML = `<input type="checkbox" name="time-block" value="${item.value}" ${item.checked ? 'checked' : ''}> ${item.value}${suffix}`;
+                        grid.appendChild(label);
+                    });
+                }
+            } catch (err) {
+                console.warn("Failed to load settings from localStorage:", err);
+            }
+            
+            // Setup Sandbox map by default (instantiate before database to avoid blocking errors)
+            try {
+                sandboxMap = new SandboxMapCanvas('sandbox-map');
+                updateMapModeView();
+                
+                // Geocode initial/saved address to center the map on startup
+                const initialAddress = document.getElementById('target-address').value.trim();
+                if (initialAddress) {
+                    const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                    if (isSandbox) {
+                        const savedCoords = localStorage.getItem('baseline_coords');
+                        if (savedCoords) {
+                            try {
+                                baselineCoords = JSON.parse(savedCoords);
+                                if (typeof L !== 'undefined' && leafletMap) {
+                                    leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
+                                }
+                                updateMapVisualsFromSettings();
+                            } catch (e) {}
+                        } else {
+                            geocodeAddressSandbox(initialAddress).then(coords => {
+                                baselineCoords = coords;
+                                saveTargetAddressAndCoords(initialAddress, coords);
+                                if (typeof L !== 'undefined' && leafletMap) {
+                                    leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
+                                }
+                                updateMapVisualsFromSettings();
+                            }).catch(err => console.warn("Initial startup geocoding failed:", err));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to initialize Sandbox Map:", err);
+            }
+            
+            // Init database
+            try {
+                await db.open();
+                await refreshUIFromDatabase();
+            } catch (err) {
+                console.warn("IndexedDB not available (private browsing?). Falling back to in-memory storage.", err);
+                setupInMemoryDatabaseFallback();
+                await refreshUIFromDatabase();
+            }
+
+            // Real-time calculation listeners for run estimates & map reflection
+            document.getElementById('radius-start').addEventListener('input', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('radius-start').addEventListener('change', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('radius-multiplier').addEventListener('input', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('radius-multiplier').addEventListener('change', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('radius-circles').addEventListener('input', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('radius-circles').addEventListener('change', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('symmetry-points').addEventListener('change', () => {
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('max-points-limit').addEventListener('input', () => {
+                updateRunEstimates();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('max-points-limit').addEventListener('change', () => {
+                updateRunEstimates();
+                saveSettingsToLocalStorage();
+            });
+            document.querySelector('.checkbox-grid').addEventListener('change', (e) => {
+                if (e.target.name === 'time-block') {
+                    updateRunEstimates();
+                    saveSettingsToLocalStorage();
+                }
+            });
+            document.getElementById('proximity-threshold').addEventListener('input', () => {
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('proximity-threshold').addEventListener('change', () => {
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('street-token').addEventListener('input', () => {
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('street-token').addEventListener('change', () => {
+                saveSettingsToLocalStorage();
+            });
+
+            // Reactive filter dropdown listeners
+            document.getElementById('filter-property').addEventListener('change', () => {
+                applyFiltersAndPopulateTable();
+            });
+            document.getElementById('filter-time').addEventListener('change', () => {
+                applyFiltersAndPopulateTable();
+            });
+            document.getElementById('chk-show-all-routes').addEventListener('change', () => {
+                drawRoutesOnMap();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('chk-show-radius').addEventListener('change', () => {
+                updateMapVisualsFromSettings();
+                saveSettingsToLocalStorage();
+            });
+            document.getElementById('chk-show-sampled').addEventListener('change', () => {
+                drawRoutesOnMap();
+                saveSettingsToLocalStorage();
+            });
+
+            document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+                const sidebar = document.querySelector('aside.glass-card');
+                const isCollapsed = sidebar.classList.toggle('collapsed');
+                
+                // Update icon and persist state
+                document.getElementById('toggle-sidebar-icon').innerText = isCollapsed ? '▶' : '◀';
+                try {
+                    localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
+                } catch (e) {}
+                
+                // Invalidate map sizes after transition completes
+                setTimeout(() => {
+                    const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                    if (isSandbox) {
+                        if (typeof L !== 'undefined' && leafletMap) {
+                            leafletMap.invalidateSize();
+                        }
+                        if (sandboxMap) {
+                            sandboxMap.resize();
+                        }
+                    } else {
+                        if (googleMapsLoaded && map) {
+                            google.maps.event.trigger(map, 'resize');
+                        }
+                    }
+                }, 350);
+            });
+
+            document.getElementById('btn-close-details').addEventListener('click', () => {
+                setDetailsCardVisible(false);
+            });
+
+            // Segmented mode switcher buttons click handlers
+            document.getElementById('btn-mode-sandbox').addEventListener('click', () => {
+                const cb = document.getElementById('sandbox-checkbox');
+                if (!cb.checked) {
+                    cb.checked = true;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            });
+            
+            document.getElementById('btn-mode-google').addEventListener('click', () => {
+                const cb = document.getElementById('sandbox-checkbox');
+                if (cb.checked) {
+                    cb.checked = false;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            });
+            
+            // Toggle link for API key collapsible configuration
+            document.getElementById('lnk-toggle-api-key').addEventListener('click', (e) => {
+                e.preventDefault();
+                const panel = document.getElementById('api-key-config-panel');
+                panel.classList.toggle('open');
+            });
+            
+            // Real-time API key status indicator update
+            document.getElementById('api-key').addEventListener('input', () => {
+                const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                updateModeSwitcherUI(isSandbox);
+            });
+            
+            updateRunEstimates(); // Run once initially
+            
+            // Draw initial map elements from current default settings after a brief initialization wait
+            setTimeout(updateMapVisualsFromSettings, 400);
+
+            // Auto load Google Maps script if API key is stored and sandbox mode was saved as false
+            const initialSandbox = document.getElementById('sandbox-checkbox').checked;
+            const initialKey = document.getElementById('api-key').value.trim();
+            if (!initialSandbox && initialKey) {
+                (async () => {
+                    try {
+                        document.getElementById('btn-load-map').innerText = 'Loading API...';
+                        document.getElementById('btn-load-map').disabled = true;
+                        await loadGoogleMapsScript(initialKey);
+                        googleMapsLoaded = true;
+                        updateMapModeView();
+                        initGoogleMap();
+                        document.getElementById('btn-load-map').innerText = 'API Loaded ✅';
+                        setEngineStatus('active', 'Google Maps API Loaded');
+                    } catch (err) {
+                        console.error("Auto loading Google Maps failed, falling back to Sandbox:", err);
+                        document.getElementById('sandbox-checkbox').checked = true;
+                        updateMapModeView();
+                        document.getElementById('btn-load-map').innerText = 'Load Google Maps API';
+                        document.getElementById('btn-load-map').disabled = false;
+                    }
+                })();
+            }
+        });
+
+        // Fallback storage when IndexedDB is blocked (e.g. strict private window)
+        function setupInMemoryDatabaseFallback() {
+            const memoryStorage = [];
+            db.open = () => Promise.resolve(true);
+            db.addRecord = (record) => {
+                record.id = memoryStorage.length + 1;
+                memoryStorage.push(record);
+                return Promise.resolve(record.id);
+            };
+            db.getAllRecords = () => Promise.resolve([...memoryStorage]);
+            db.clearRecords = () => {
+                memoryStorage.length = 0;
+                return Promise.resolve();
+            };
+        }
+
+        // Updates the total points and queries display in the sidebar panel
+        function updateRunEstimates() {
+            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+            const radiusMultiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
+            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
+            const symmetryPoints = parseInt(document.getElementById('symmetry-points').value) || 8;
+            const maxLimit = parseInt(document.getElementById('max-points-limit').value) || 100;
+            
+            const countTiers = circlesCount;
+            
+            const totalPoints = countTiers * symmetryPoints;
+            const selectedHours = document.querySelectorAll('input[name="time-block"]:checked').length;
+            const totalQueries = totalPoints * selectedHours;
+            
+            const pointsEl = document.getElementById('calc-total-points');
+            const queriesEl = document.getElementById('calc-total-queries');
+            
+            if (pointsEl) {
+                pointsEl.innerText = totalPoints;
+                if (totalPoints > maxLimit) {
+                    pointsEl.style.color = 'var(--color-danger)';
+                    pointsEl.title = `Total points (${totalPoints}) exceeds limit cap of ${maxLimit}`;
+                } else {
+                    pointsEl.style.color = 'var(--accent-cyan)';
+                    pointsEl.title = "";
+                }
+            }
+            if (queriesEl) {
+                queriesEl.innerText = totalQueries;
+            }
+        }
+
+        function updateMapVisualsFromSettings() {
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            const showRadius = document.getElementById('chk-show-radius').checked;
+            
+            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+            const radiusMultiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
+            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
+            const symmetryPointsCount = parseInt(document.getElementById('symmetry-points').value) || 8;
+            
+            if (radiusStart <= 0 || radiusMultiplier <= 0 || circlesCount < 1) {
+                return; 
+            }
+            
+            const radiusTiers = [];
+            let r = radiusStart;
+            for (let i = 0; i < circlesCount; i++) {
+                radiusTiers.push(r);
+                r *= radiusMultiplier;
+            }
+            
+            const allSymmetryPoints = [];
+            radiusTiers.forEach(radius => {
+                for (let i = 0; i < symmetryPointsCount; i++) {
+                    const bearing = i * (360 / symmetryPointsCount);
+                    const pt = getPointAtBearing(baselineCoords, radius, bearing);
+                    allSymmetryPoints.push(pt);
+                }
+            });
+            
+            if (isSandbox) {
+                if (typeof L !== 'undefined' && leafletMap) {
+                    if (showRadius) {
+                        drawTargetMarkerOnLeafletMap();
+                        drawSymmetryPointsOnLeafletMap(allSymmetryPoints);
+                    } else {
+                        // Clear them
+                        if (leafletTargetMarker) { leafletTargetMarker.remove(); leafletTargetMarker = null; }
+                        leafletCircles.forEach(c => c.remove());
+                        leafletCircles = [];
+                        leafletSymmetryMarkers.forEach(m => m.remove());
+                        leafletSymmetryMarkers = [];
+                    }
+                }
+                if (sandboxMap) {
+                    if (showRadius) {
+                        sandboxMap.setTiers(radiusTiers);
+                        sandboxMap.setSymmetryPoints(allSymmetryPoints);
+                    } else {
+                        sandboxMap.setTiers([]);
+                        sandboxMap.setSymmetryPoints([]);
+                    }
+                }
+            } else {
+                if (googleMapsLoaded && map) {
+                    if (showRadius) {
+                        drawTargetMarkerOnGoogleMap();
+                        drawSymmetryPointsOnGoogleMap(allSymmetryPoints);
+                    } else {
+                        // Clear them
+                        clearGoogleMapOverlays();
+                    }
+                }
+            }
+        }
+
+        // --- LEAFLET INTERACTIVE MAP INTEGRATION (SANDBOX MODE) ---
+        function initLeafletMap() {
+            if (leafletMap || typeof L === 'undefined') return;
+            try {
+                let savedZoom = 12;
+                try {
+                    const z = localStorage.getItem('map_zoom');
+                    if (z) savedZoom = parseFloat(z);
+                } catch (e) {}
+                
+                // Initialize map centered at baselineCoords with 0.25 zoom steps
+                leafletMap = L.map('leaflet-map', {
+                    zoomControl: true,
+                    attributionControl: true,
+                    zoomSnap: 0.25,
+                    zoomDelta: 0.25
+                }).setView([baselineCoords.lat, baselineCoords.lng], savedZoom);
+                
+                // Add CartoDB Dark Matter tile layer
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                }).addTo(leafletMap);
+                
+                // Persist zoom changes
+                leafletMap.on('zoomend', () => {
+                    try {
+                        localStorage.setItem('map_zoom', leafletMap.getZoom());
+                    } catch (e) {}
+                });
+                
+                updateMapVisualsFromSettings();
+            } catch (err) {
+                console.error("Failed to initialize Leaflet Map:", err);
+            }
+        }
+
+        function drawTargetMarkerOnLeafletMap() {
+            if (!leafletMap) return;
+            
+            // Clear previous target marker and circles
+            if (leafletTargetMarker) {
+                leafletTargetMarker.remove();
+                leafletTargetMarker = null;
+            }
+            leafletCircles.forEach(c => c.remove());
+            leafletCircles = [];
+            
+            // Draw Target Pin (using red circle marker)
+            leafletTargetMarker = L.circleMarker([baselineCoords.lat, baselineCoords.lng], {
+                radius: 7,
+                fillColor: '#ef4444',
+                color: '#ffffff',
+                weight: 2,
+                fillOpacity: 1.0
+            }).addTo(leafletMap).bindPopup("Target Bottleneck Area");
+            
+            // Draw concentric circle bands representing exponential tiers
+            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+            const multiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
+            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
+            
+            let radius = radiusStart;
+            const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+            let colorIdx = 0;
+            
+            for (let i = 0; i < circlesCount; i++) {
+                const circle = L.circle([baselineCoords.lat, baselineCoords.lng], {
+                    radius: radius * 1000, // Convert km to meters
+                    color: colors[colorIdx % colors.length],
+                    weight: 1.5,
+                    opacity: 0.5,
+                    fillColor: colors[colorIdx % colors.length],
+                    fillOpacity: 0.04
+                }).addTo(leafletMap);
+                
+                leafletCircles.push(circle);
+                colorIdx++;
+                radius *= multiplier;
+            }
+        }
+
+        function drawSymmetryPointsOnLeafletMap(points) {
+            if (!leafletMap) return;
+            
+            // Clear old ones
+            leafletSymmetryMarkers.forEach(m => m.remove());
+            leafletSymmetryMarkers = [];
+            
+            points.forEach(pt => {
+                const marker = L.circleMarker([pt.lat, pt.lng], {
+                    radius: 4,
+                    fillColor: '#6366f1',
+                    color: 'rgba(99, 102, 241, 0.4)',
+                    weight: 1,
+                    fillOpacity: 0.8
+                }).addTo(leafletMap);
+                leafletSymmetryMarkers.push(marker);
+            });
+        }
+
+        function drawActiveSearchOnLeafletMap(origin, destination) {
+            if (!leafletMap) return;
+            
+            // Clear old search line
+            if (leafletSearchLine) {
+                leafletSearchLine.remove();
+                leafletSearchLine = null;
+            }
+            
+            // Draw Origin -> Destination dashed line
+            leafletSearchLine = L.polyline([[origin.lat, origin.lng], [destination.lat, destination.lng]], {
+                color: '#f59e0b',
+                weight: 2,
+                dashArray: '5, 5',
+                opacity: 0.8
+            }).addTo(leafletMap);
+        }
+
+        function clearLeafletOverlays() {
+            if (leafletSearchLine) {
+                leafletSearchLine.remove();
+                leafletSearchLine = null;
+            }
+            leafletRoutePolylines.forEach(p => p.remove());
+            leafletRoutePolylines = [];
+            leafletSelectedRoutePolyline = null;
+            leafletSampledPolylines.forEach(p => p.remove());
+            leafletSampledPolylines = [];
+            leafletRouteStartMarkers.forEach(m => m.remove());
+            leafletRouteStartMarkers = [];
+            leafletRouteEndMarkers.forEach(m => m.remove());
+            leafletRouteEndMarkers = [];
+            leafletArrowheadPolygons.forEach(m => m.remove());
+            leafletArrowheadPolygons = [];
+            leafletSymmetryMarkers.forEach(m => m.remove());
+            leafletSymmetryMarkers = [];
+        }
+
+        function getLeafletArrowhead(p1, p2) {
+            const latA = p1.lat;
+            const lngA = p1.lng;
+            const latB = p2.lat;
+            const lngB = p2.lng;
+            
+            const dy = latB - latA;
+            const dx = lngB - lngA;
+            const len = Math.sqrt(dy * dy + dx * dx);
+            if (len === 0) return null;
+            
+            // Midpoint of first section
+            const latM = latA + dy * 0.5;
+            const lngM = lngA + dx * 0.5;
+            
+            // Calculate bearing (rotation angle in degrees clockwise from North)
+            const angleRad = Math.atan2(dx, dy);
+            let angleDeg = angleRad * 180 / Math.PI;
+            if (angleDeg < 0) angleDeg += 360;
+            
+            return { lat: latM, lng: lngM, angle: angleDeg };
+        }
+
+        function updateModeSwitcherUI(isSandbox) {
+            const btnSandbox = document.getElementById('btn-mode-sandbox');
+            const btnGoogle = document.getElementById('btn-mode-google');
+            const lnkConfig = document.getElementById('lnk-toggle-api-key');
+            const configPanel = document.getElementById('api-key-config-panel');
+            
+            if (isSandbox) {
+                if (btnSandbox) btnSandbox.classList.add('active');
+                if (btnGoogle) btnGoogle.classList.remove('active');
+                if (lnkConfig) lnkConfig.style.display = 'none';
+                if (configPanel) configPanel.classList.remove('open');
+            } else {
+                if (btnSandbox) btnSandbox.classList.remove('active');
+                if (btnGoogle) btnGoogle.classList.add('active');
+                if (lnkConfig) lnkConfig.style.display = 'inline-flex';
+                
+                // Update link text based on whether key exists
+                const savedKey = localStorage.getItem('gmaps_api_key') || document.getElementById('api-key').value.trim();
+                if (lnkConfig) {
+                    if (savedKey) {
+                        lnkConfig.innerHTML = '⚙️ Configure Key <span style="color: var(--color-success); margin-left: 2px;">(Set ✅)</span>';
+                    } else {
+                        lnkConfig.innerHTML = '⚙️ Configure Key <span style="color: var(--color-warning); margin-left: 2px;">(Not Configured ⚠️)</span>';
+                    }
+                }
+            }
+        }
+
+        function updateMapModeView() {
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            updateModeSwitcherUI(isSandbox);
+            const googleMapEl = document.getElementById('google-map');
+            const leafletMapEl = document.getElementById('leaflet-map');
+            const sandboxCanvasEl = document.getElementById('sandbox-map');
+            const legendSandboxIndicator = document.getElementById('sandbox-legend-indicator');
+            const btnLoadMap = document.getElementById('btn-load-map');
+            
+            if (isSandbox) {
+                googleMapEl.style.display = 'none';
+                legendSandboxIndicator.style.display = 'flex';
+                btnLoadMap.style.display = 'block';
+                
+                // If Leaflet library is available, use it; otherwise fallback to Canvas
+                if (typeof L !== 'undefined') {
+                    leafletMapEl.style.display = 'block';
+                    sandboxCanvasEl.style.display = 'none';
+                    initLeafletMap();
+                    if (leafletMap) {
+                        leafletMap.invalidateSize();
+                        // Draw current states on Leaflet map
+                        updateMapVisualsFromSettings();
+                        drawRoutesOnMap();
+                    }
+                } else {
+                    leafletMapEl.style.display = 'none';
+                    sandboxCanvasEl.style.display = 'block';
+                    if (sandboxMap) {
+                        sandboxMap.resize();
+                        setTimeout(() => {
+                            if (sandboxMap) sandboxMap.resize();
+                        }, 150);
+                    }
+                }
+            } else {
+                googleMapEl.style.display = 'block';
+                leafletMapEl.style.display = 'none';
+                sandboxCanvasEl.style.display = 'none';
+                legendSandboxIndicator.style.display = 'none';
+                btnLoadMap.style.display = 'none';
+                if (googleMapsLoaded && map) {
+                    google.maps.event.trigger(map, 'resize');
+                    // Draw current states on Google map
+                    updateMapVisualsFromSettings();
+                    drawRoutesOnMap();
+                }
+            }
+        }
+
+        document.getElementById('sandbox-checkbox').addEventListener('change', async () => {
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            saveSettingsToLocalStorage();
+            if (!isSandbox && !googleMapsLoaded) {
+                const apiKey = document.getElementById('api-key').value.trim();
+                if (!apiKey) {
+                    alert('Please enter a Google Maps API Key first to load Google Maps.');
+                    document.getElementById('sandbox-checkbox').checked = true;
+                    updateMapModeView();
+                    return;
+                }
+                
+                try {
+                    document.getElementById('btn-load-map').innerText = 'Loading API...';
+                    document.getElementById('btn-load-map').disabled = true;
+                    
+                    localStorage.setItem('gmaps_api_key', apiKey);
+                    
+                    await loadGoogleMapsScript(apiKey);
+                    googleMapsLoaded = true;
+                    
+                    updateMapModeView();
+                    initGoogleMap();
+                    
+                    document.getElementById('btn-load-map').innerText = 'API Loaded ✅';
+                    setEngineStatus('active', 'Google Maps API Loaded');
+                } catch (err) {
+                    console.error(err);
+                    alert('Failed to load Google Maps API. Checking your console logs. Reverting to Sandbox Mode.');
+                    document.getElementById('sandbox-checkbox').checked = true;
+                    updateMapModeView();
+                    document.getElementById('btn-load-map').innerText = 'Load Google Maps API';
+                    document.getElementById('btn-load-map').disabled = false;
+                }
+            } else {
+                updateMapModeView();
+            }
+        });
+
+        document.getElementById('btn-load-map').addEventListener('click', async () => {
+            const apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                alert('Please enter a valid Google Maps API Key first.');
+                return;
+            }
+            
+            localStorage.setItem('gmaps_api_key', apiKey);
+            
+            try {
+                document.getElementById('btn-load-map').innerText = 'Loading API...';
+                document.getElementById('btn-load-map').disabled = true;
+                
+                await loadGoogleMapsScript(apiKey);
+                googleMapsLoaded = true;
+                
+                document.getElementById('sandbox-checkbox').checked = false;
+                updateMapModeView();
+                
+                // Init Google Map
+                initGoogleMap();
+                
+                document.getElementById('btn-load-map').innerText = 'API Loaded ✅';
+                setEngineStatus('active', 'Google Maps API Loaded');
+            } catch (err) {
+                console.error(err);
+                alert('Failed to load Google Maps API. Checking your console logs. Reverting to Sandbox Mode.');
+                document.getElementById('sandbox-checkbox').checked = true;
+                updateMapModeView();
+                document.getElementById('btn-load-map').innerText = 'Load Google Maps API';
+                document.getElementById('btn-load-map').disabled = false;
+            }
+        });
+
+        function loadGoogleMapsScript(key) {
+            return new Promise((resolve, reject) => {
+                if (window.google && window.google.maps) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry`;
+                script.async = true;
+                script.defer = true;
+                script.onload = () => resolve();
+                script.onerror = (e) => reject(new Error('Script load error'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function initGoogleMap() {
+            let savedZoom = 12;
+            try {
+                const z = localStorage.getItem('map_zoom');
+                if (z) savedZoom = parseFloat(z);
+            } catch (e) {}
+            
+            const mapOptions = {
+                center: baselineCoords,
+                zoom: savedZoom,
+                isFractionalZoomEnabled: true,
+                styles: [
+                    { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
+                    { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
+                    { elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
+                    { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#334155" }] },
+                    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+                    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#334155" }] },
+                    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#64748b" }] },
+                    { featureType: "water", elementType: "geometry", stylers: [{ color: "#070a13" }] },
+                    { featureType: "poi", elementType: "all", stylers: [{ visibility: "off" }] },
+                    { featureType: "transit", elementType: "all", stylers: [{ visibility: "off" }] }
+                ],
+                disableDefaultUI: true,
+                zoomControl: true
+            };
+            
+            map = new google.maps.Map(document.getElementById('google-map'), mapOptions);
+            
+            // Persist zoom changes
+            map.addListener('zoom_changed', () => {
+                try {
+                    localStorage.setItem('map_zoom', map.getZoom());
+                } catch (e) {}
+            });
+            
+            // Auto complete for address
+            const autocomplete = new google.maps.places.Autocomplete(
+                document.getElementById('target-address'),
+                { types: ['geocode'] }
+            );
+            
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace();
+                if (!place.geometry) return;
+                
+                baselineCoords = {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng()
+                };
+                
+                const addressText = place.formatted_address || document.getElementById('target-address').value;
+                document.getElementById('target-address').value = addressText;
+                saveTargetAddressAndCoords(addressText, baselineCoords);
+                
+                map.setCenter(baselineCoords);
+                map.setZoom(14);
+                
+                // extract street token
+                const token = extractStreetToken(addressText);
+                document.getElementById('street-token').value = token;
+                
+                updateMapVisualsFromSettings();
+            });
+            
+            updateMapVisualsFromSettings();
+        }
+
+        function drawTargetMarkerOnGoogleMap() {
+            // Clear previous target markers/overlays
+            clearGoogleMapOverlays();
+            
+            // Target marker (red circle + marker)
+            const targetMarker = new google.maps.Marker({
+                position: baselineCoords,
+                map: map,
+                title: "Target Bottleneck Area",
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 7,
+                    fillColor: "#ef4444",
+                    fillOpacity: 1.0,
+                    strokeColor: "#ffffff",
+                    strokeWeight: 2
+                }
+            });
+            activeOverlays.push(targetMarker);
+            
+            // Concentric circle overlays
+            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+            const multiplier = parseFloat(document.getElementById('radius-multiplier').value);
+            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
+            
+            let radius = radiusStart;
+            const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+            let colorIdx = 0;
+            
+            for (let i = 0; i < circlesCount; i++) {
+                const circle = new google.maps.Circle({
+                    strokeColor: colors[colorIdx % colors.length],
+                    strokeOpacity: 0.4,
+                    strokeWeight: 1,
+                    fillColor: colors[colorIdx % colors.length],
+                    fillOpacity: 0.03,
+                    map: map,
+                    center: baselineCoords,
+                    radius: radius * 1000 // Convert km to meters
+                });
+                
+                activeOverlays.push(circle);
+                colorIdx++;
+                radius *= multiplier;
+            }
+        }
+
+        function clearGoogleMapOverlays() {
+            activeOverlays.forEach(overlay => {
+                if (overlay && typeof overlay.setMap === 'function') {
+                    overlay.setMap(null);
+                }
+            });
+            activeOverlays = [];
+            
+            googleSymmetryMarkers.forEach(m => m.setMap(null));
+            googleSymmetryMarkers = [];
+        }
+
+        function drawSymmetryPointsOnGoogleMap(points) {
+            googleSymmetryMarkers.forEach(m => m.setMap(null));
+            googleSymmetryMarkers = [];
+            
+            if (!map) return;
+            
+            points.forEach(pt => {
+                const marker = new google.maps.Marker({
+                    position: pt,
+                    map: map,
+                    title: `Symmetry Point: ${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}`,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 4,
+                        fillColor: "#6366f1",
+                        fillOpacity: 0.8,
+                        strokeColor: "rgba(99, 102, 241, 0.4)",
+                        strokeWeight: 1
+                    }
+                });
+                googleSymmetryMarkers.push(marker);
+            });
+        }
+
+        // --- ENGINE CONTROLLER & QUEUE RUNNER ---
+        function setEngineStatus(state, details = "") {
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+            
+            indicator.className = 'status-dot';
+            
+            if (state === 'active') {
+                indicator.classList.add('active');
+                text.innerText = details || "Engine Idle / Ready";
+                isEngineRunning = false;
+            } else if (state === 'running') {
+                indicator.classList.add('running');
+                text.innerText = details || "Research Run In Progress...";
+                isEngineRunning = true;
+            } else {
+                text.innerText = details || "Engine Idle";
+                isEngineRunning = false;
+            }
+        }
+
+        let toastTimeoutId = null;
+        function showRunMessageToast(message, type = 'success') {
+            const toast = document.getElementById('run-message-toast');
+            if (!toast) return;
+            
+            if (toastTimeoutId) {
+                clearTimeout(toastTimeoutId);
+            }
+            
+            toast.innerText = message;
+            if (type === 'success') {
+                toast.style.background = 'rgba(16, 185, 129, 0.15)';
+                toast.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                toast.style.color = 'var(--color-success)';
+            } else {
+                toast.style.background = 'rgba(239, 68, 68, 0.15)';
+                toast.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                toast.style.color = 'var(--color-danger)';
+            }
+            
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+            
+            toastTimeoutId = setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-5px)';
+            }, 3000);
+        }
+
+        // Add Custom Hour tag
+        document.getElementById('btn-add-hour').addEventListener('click', () => {
+            const input = document.getElementById('custom-hour');
+            const val = input.value.trim();
+            const timeReg = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+            
+            if (!val.match(timeReg)) {
+                alert('Please enter a valid 24h format (e.g. 09:30 or 14:15).');
+                return;
+            }
+            
+            // Check if already exists
+            const grid = document.querySelector('.checkbox-grid');
+            const checkboxes = grid.querySelectorAll('input[type="checkbox"]');
+            for (let cb of checkboxes) {
+                if (cb.value === val) {
+                    alert('Time block already added.');
+                    return;
+                }
+            }
+            
+            // Create element
+            const label = document.createElement('label');
+            label.className = 'checkbox-item';
+            label.innerHTML = `<input type="checkbox" name="time-block" value="${val}" checked> ${val}`;
+            grid.appendChild(label);
+            input.value = "";
+            updateRunEstimates(); // Recalculate estimates for the new time block
+            saveSettingsToLocalStorage(); // Save updated time blocks list
+        });
+
+        // Halt Action
+        document.getElementById('btn-halt-run').addEventListener('click', () => {
+            engineHalted = true;
+            document.getElementById('btn-halt-run').disabled = true;
+            setEngineStatus('idle', 'Halting Execution...');
+        });
+
+        // Start Research Run Action
+        document.getElementById('btn-start-run').addEventListener('click', async () => {
+            if (isEngineRunning) return;
+            
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            
+            // Input Validation
+            const address = document.getElementById('target-address').value.trim();
+            if (!address) {
+                alert('Target Location Address is required.');
+                return;
+            }
+            
+            const proximityThreshold = parseFloat(document.getElementById('proximity-threshold').value);
+            if (isNaN(proximityThreshold) || proximityThreshold <= 0) {
+                alert('Proximity Threshold must be a positive number.');
+                return;
+            }
+            
+            const radiusStart = parseFloat(document.getElementById('radius-start').value) / 1000.0;
+            const radiusMultiplier = parseFloat(document.getElementById('radius-multiplier').value);
+            const circlesCount = parseInt(document.getElementById('radius-circles').value);
+            
+            if (radiusStart <= 0 || radiusMultiplier <= 0 || isNaN(circlesCount) || circlesCount < 1) {
+                alert('Invalid radius settings. Start > 0, Step > 0, Circles >= 1.');
+                return;
+            }
+
+            // Calculate tiers and enforce Points limit cap
+            const symmetryPointsCount = parseInt(document.getElementById('symmetry-points').value);
+            const maxPointsLimit = parseInt(document.getElementById('max-points-limit').value) || 100;
+            
+            // Gather selected time blocks
+            const timeBoxes = document.querySelectorAll('input[name="time-block"]:checked');
+            if (timeBoxes.length === 0) {
+                alert('Select at least one Time Block to analyze.');
+                return;
+            }
+            const hours = Array.from(timeBoxes).map(cb => cb.value);
+            
+            // Update token
+            streetToken = document.getElementById('street-token').value.trim();
+            if (!streetToken) {
+                streetToken = extractStreetToken(address);
+                document.getElementById('street-token').value = streetToken;
+            }
+            
+            // Check Google maps status
+            if (!isSandbox && !googleMapsLoaded) {
+                alert('Please load the Google Maps API using a key, or switch to Sandbox Simulation Mode.');
+                return;
+            }
+            
+            // Prepare UI state
+            engineHalted = false;
+            isEngineRunning = true;
+            document.getElementById('btn-start-run').disabled = true;
+            document.getElementById('btn-halt-run').disabled = false;
+            document.getElementById('progress-panel').style.display = 'flex';
+            
+            setEngineStatus('running', 'Initializing run...');
+            
+            // 1. Resolve address coords
+            try {
+                if (!isSandbox) {
+                    setEngineStatus('running', 'Geocoding address...');
+                    const coords = await geocodeAddressGoogle(address);
+                    baselineCoords = coords;
+                    saveTargetAddressAndCoords(address, coords);
+                    map.setCenter(baselineCoords);
+                    updateMapVisualsFromSettings();
+                } else {
+                    setEngineStatus('running', 'Geocoding address (Sandbox)...');
+                    const coords = await geocodeAddressSandbox(address);
+                    baselineCoords = coords;
+                    saveTargetAddressAndCoords(address, coords);
+                    if (typeof L !== 'undefined') {
+                        initLeafletMap();
+                        if (leafletMap) {
+                            leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
+                            updateMapVisualsFromSettings();
+                            clearLeafletOverlays();
+                        }
+                    }
+                    if (sandboxMap) {
+                        sandboxMap.clearActiveSearch();
+                        sandboxMap.clearSelectedPath();
+                        sandboxMap.resize(); // trigger redraw centered on new coords
+                    }
+                }
+            } catch (err) {
+                if (!isSandbox) {
+                    alert('Geocoding failed for: ' + address + '. Reverting to offline sandbox coords.');
+                } else {
+                    console.warn('Sandbox geocoding failed, using fallback Montreal coords.', err);
+                }
+                console.error(err);
+                // Fail-safe Montreal coords
+                baselineCoords = { lat: 45.5265, lng: -73.5877 };
+            }
+            
+            // 2. Generate Radius tiers
+            const radiusTiers = [];
+            let r = radiusStart;
+            for (let i = 0; i < circlesCount; i++) {
+                radiusTiers.push(r);
+                r *= radiusMultiplier;
+            }
+            
+            // Send tiers to sandbox map
+            if (isSandbox && sandboxMap) {
+                sandboxMap.setTiers(radiusTiers);
+            }
+            
+            // 3. Generate jobs list (combinatorial: Tiers x OD-pairs x Hours) Capped at maxPointsLimit
+            const jobs = [];
+            const allSymmetryPoints = [];
+            let pointsGenerated = 0;
+            
+            radiusTiers.forEach(radius => {
+                // Generate N peripheral points (uncapped for map visuals)
+                const pts = [];
+                for (let i = 0; i < symmetryPointsCount; i++) {
+                    const bearing = i * (360 / symmetryPointsCount);
+                    const pt = getPointAtBearing(baselineCoords, radius, bearing);
+                    pts.push(pt);
+                    allSymmetryPoints.push(pt);
+                }
+                
+                // Only generate jobs for these points if we are within the cap
+                if (pointsGenerated < maxPointsLimit) {
+                    let ptsCountThisTier = symmetryPointsCount;
+                    if (pointsGenerated + ptsCountThisTier > maxPointsLimit) {
+                        ptsCountThisTier = maxPointsLimit - pointsGenerated;
+                    }
+                    
+                    if (ptsCountThisTier > 0) {
+                        const pairs = [];
+                        for (let i = 0; i < ptsCountThisTier; i++) {
+                            // Base angle for this point
+                            const baseAngle = i * (360 / symmetryPointsCount);
+                            
+                            // Continuous angle randomization
+                            const angle1 = baseAngle + Math.random() * (360 / symmetryPointsCount);
+                            // Randomized distance within +/- 20% of the tier radius
+                            const dist1 = radius * (0.8 + Math.random() * 0.4);
+                            const pt1 = getPointAtBearing(baselineCoords, dist1, angle1);
+                            
+                            // Randomize destination angle on opposing half-circle (180-deg arc)
+                            const angle2 = (angle1 + 90 + Math.random() * 180) % 360;
+                            // Randomized distance within +/- 20% of the tier radius
+                            const dist2 = radius * (0.8 + Math.random() * 0.4);
+                            const pt2 = getPointAtBearing(baselineCoords, dist2, angle2);
+                            
+                            // Generate only one route from pt1 to pt2
+                            pairs.push({
+                                origin: pt1,
+                                destination: pt2
+                            });
+                        }
+                        
+                        // Add combinations to jobs list
+                        hours.forEach(hour => {
+                            pairs.forEach(pair => {
+                                jobs.push({
+                                    radius: radius,
+                                    hour: hour,
+                                    origin: pair.origin,
+                                    destination: pair.destination
+                                });
+                            });
+                        });
+                        
+                        pointsGenerated += ptsCountThisTier;
+                    }
+                }
+            });
+            
+            // Send tiers to sandbox map
+            if (isSandbox && sandboxMap) {
+                const showRadius = document.getElementById('chk-show-radius').checked;
+                sandboxMap.setTiers(showRadius ? radiusTiers : []);
+            }
+            
+            if (isSandbox) {
+                const showRadius = document.getElementById('chk-show-radius').checked;
+                if (typeof L !== 'undefined' && leafletMap) {
+                    if (showRadius) {
+                        drawSymmetryPointsOnLeafletMap(allSymmetryPoints);
+                    } else {
+                        leafletSymmetryMarkers.forEach(m => m.remove());
+                        leafletSymmetryMarkers = [];
+                    }
+                }
+                if (sandboxMap) {
+                    sandboxMap.setSymmetryPoints(showRadius ? allSymmetryPoints : []);
+                }
+            }
+            
+            // Run jobs sequentially
+            const totalJobs = jobs.length;
+            let completedJobs = 0;
+            
+            document.getElementById('progress-queries').innerText = `0 / ${totalJobs}`;
+            document.getElementById('progress-percentage').innerText = `0%`;
+            document.getElementById('progress-bar').style.width = `0%`;
+            
+            const startTime = Date.now();
+            
+            for (let i = 0; i < jobs.length; i++) {
+                if (engineHalted) {
+                    break;
+                }
+                
+                const job = jobs[i];
+                document.getElementById('progress-current-tier').innerText = `${job.radius.toFixed(1)} km (Hour: ${job.hour})`;
+                setEngineStatus('running', `Querying tier ${job.radius.toFixed(1)}km, pair ${i+1}/${totalJobs}`);
+                
+                if (isSandbox) {
+                    if (typeof L !== 'undefined' && leafletMap) {
+                        drawActiveSearchOnLeafletMap(job.origin, job.destination);
+                    }
+                    if (sandboxMap) {
+                        sandboxMap.setActiveSearch(job.origin, job.destination);
+                    }
+                }
+                
+                try {
+                    let routeResult = null;
+                    if (isSandbox) {
+                        // Mock directions API call
+                        routeResult = await simulateDirectionsQuery(job, proximityThreshold);
+                    } else {
+                        // Google Directions API call
+                        routeResult = await fetchDirectionsGoogle(job);
+                    }
+                    
+                    // Evaluate Two-Stage route validation
+                    const evaluation = evaluateRouteIntersection(routeResult, baselineCoords, streetToken, proximityThreshold);
+                    
+                    // Add record to IndexedDB
+                    const timeSection = mapHourToTimeSection(job.hour);
+                    const record = {
+                        hour: job.hour,
+                        time_section: timeSection,
+                        origin_coords: `${job.origin.lat.toFixed(4)}, ${job.origin.lng.toFixed(4)}`,
+                        destination_coords: `${job.destination.lat.toFixed(4)}, ${job.destination.lng.toFixed(4)}`,
+                        radius_km: job.radius,
+                        passes_target: evaluation.passes,
+                        closest_distance_meters: evaluation.distance,
+                        travel_time: evaluation.duration,
+                        route_steps_text: evaluation.steps,
+                        polyline_points: evaluation.path,
+                        start_address: evaluation.startAddress || '',
+                        end_address: evaluation.endAddress || '',
+                        total_distance_meters: evaluation.totalDistanceMeters || 0
+                    };
+                    
+                    await db.addRecord(record);
+                    
+                } catch (err) {
+                    console.error("Job routing error:", err);
+                    // Add failed record
+                    const timeSection = mapHourToTimeSection(job.hour);
+                    await db.addRecord({
+                        hour: job.hour,
+                        time_section: timeSection,
+                        origin_coords: `${job.origin.lat.toFixed(4)}, ${job.origin.lng.toFixed(4)}`,
+                        destination_coords: `${job.destination.lat.toFixed(4)}, ${job.destination.lng.toFixed(4)}`,
+                        radius_km: job.radius,
+                        passes_target: false,
+                        closest_distance_meters: null,
+                        travel_time: "API Error",
+                        route_steps_text: ["Routing error occurred: " + err.message],
+                        polyline_points: []
+                    });
+                }
+                
+                completedJobs++;
+                const pct = Math.round((completedJobs / totalJobs) * 100);
+                document.getElementById('progress-percentage').innerText = `${pct}%`;
+                document.getElementById('progress-bar').style.width = `${pct}%`;
+                document.getElementById('progress-queries').innerText = `${completedJobs} / ${totalJobs}`;
+                
+                // Refresh log grid dynamically during the run
+                await refreshUIFromDatabase();
+                
+                // Calculate remaining time
+                const elapsed = Date.now() - startTime;
+                const avgTimePerJob = elapsed / completedJobs;
+                const remainingJobs = totalJobs - completedJobs;
+                const estRemainingMs = remainingJobs * avgTimePerJob;
+                
+                const minRem = Math.floor(estRemainingMs / 60000);
+                const secRem = Math.round((estRemainingMs % 60000) / 1000);
+                document.getElementById('progress-est-time').innerText = `${minRem}m ${secRem}s`;
+                
+                // Cool down delay to prevent billing rate limit bans
+                const delayMs = isSandbox ? 150 : 1000;
+                await new Promise(r => setTimeout(r, delayMs));
+            }
+            
+            // Clean up running states
+            if (isSandbox) {
+                if (typeof L !== 'undefined' && leafletMap) {
+                    clearLeafletOverlays();
+                }
+                if (sandboxMap) {
+                    sandboxMap.clearActiveSearch();
+                }
+            }
+            
+            document.getElementById('btn-start-run').disabled = false;
+            document.getElementById('btn-halt-run').disabled = true;
+            isEngineRunning = false;
+            
+            if (engineHalted) {
+                setEngineStatus('idle', 'Engine Run Halted by User.');
+                showRunMessageToast('Research run halted.', 'halted');
+            } else {
+                setEngineStatus('active', 'Run Complete.');
+                showRunMessageToast('Research run completed successfully!', 'success');
+            }
+        });
+
+        // Geocodes address string to coordinates
+        function geocodeAddressGoogle(address) {
+            const geocoder = new google.maps.Geocoder();
+            return new Promise((resolve, reject) => {
+                geocoder.geocode({ address: address }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        resolve({
+                            lat: results[0].geometry.location.lat(),
+                            lng: results[0].geometry.location.lng()
+                        });
+                    } else {
+                        reject(new Error('Geocoding failed: ' + status));
+                    }
+                });
+            });
+        }
+
+        // Geocodes address string to coordinates using free Nominatim API in sandbox mode
+        async function geocodeAddressSandbox(address) {
+            try {
+                // If it is the default address, return exact coordinates immediately offline
+                const cleanAddr = address.toLowerCase().trim();
+                if (cleanAddr.includes('saint-joseph') && cleanAddr.includes('lanaudi')) {
+                    return { lat: 45.5265, lng: -73.5877 };
+                }
+                
+                // Clean intersection syntax for Nominatim: replace "&" with "and"
+                let query = address.replace(/\s*&\s*/g, ' and ');
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+                
+                // Use AbortController to set a 2.5-second timeout on the geocoding request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2500);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept-Language': 'en'
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lng: parseFloat(data[0].lon)
+                    };
+                }
+            } catch (e) {
+                console.warn("Sandbox geocoding query failed or timed out, falling back to offline coordinates.", e);
+            }
+            // Default fallback coords
+            return { lat: 45.5265, lng: -73.5877 };
+        }
+
+        // Fetches driving route directions
+        function fetchDirectionsGoogle(job) {
+            const directionsService = new google.maps.DirectionsService();
+            
+            // Calculate departure date/time
+            const depDate = calculateDepartureDate(job.hour);
+            
+            return new Promise((resolve, reject) => {
+                directionsService.route({
+                    origin: new google.maps.LatLng(job.origin.lat, job.origin.lng),
+                    destination: new google.maps.LatLng(job.destination.lat, job.destination.lng),
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    drivingOptions: {
+                        departureTime: depDate,
+                        trafficModel: google.maps.TrafficModel.BEST_GUESS
+                    }
+                }, (result, status) => {
+                    if (status === 'OK') {
+                        resolve(result);
+                    } else {
+                        reject(new Error('Directions API failed: ' + status));
+                    }
+                });
+            });
+        }
+
+        // Calculate next calendar occurrence for target HH:MM
+        function calculateDepartureDate(hourStr) {
+            const [hh, mm] = hourStr.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hh, mm, 0, 0);
+            
+            // If date is already in the past, add 1 day
+            if (date.getTime() <= Date.now()) {
+                date.setDate(date.getDate() + 1);
+            }
+            return date;
+        }
+
+        // Mock simulation directions generator
+        function simulateDirectionsQuery(job, proximityThreshold) {
+            return new Promise((resolve) => {
+                // Determine whether mock route will pass target locations
+                // We add some randomness but model YES/NO based on the math
+                
+                // Center target coords
+                const center = baselineCoords;
+                
+                // Let's decide if this route will pass the text check (80% chance)
+                const passesText = Math.random() < 0.75;
+                
+                // Let's decide if it passes geometry check (only if text passes, then 40% chance)
+                const passesGeom = passesText && (Math.random() < 0.5);
+                
+                // Generate points
+                const path = [];
+                path.push(job.origin);
+                
+                // Draw a bending curve through or around Montreal center coordinates
+                let midLat = (job.origin.lat + job.destination.lat) / 2;
+                let midLng = (job.origin.lng + job.destination.lng) / 2;
+                
+                if (passesGeom) {
+                    // Distort middle point to pass close to center target (within threshold * 0.4)
+                    const offsetMeters = (Math.random() * 0.4) * proximityThreshold;
+                    const offsetDeg = offsetMeters / 111300;
+                    midLat = center.lat + (Math.random() - 0.5) * offsetDeg;
+                    midLng = center.lng + (Math.random() - 0.5) * (offsetDeg / Math.cos(center.lat * Math.PI / 180));
+                } else {
+                    // Distort middle point to be far away from center target
+                    const offsetMeters = (1.5 + Math.random() * 2.0) * proximityThreshold;
+                    const offsetDeg = offsetMeters / 111300;
+                    const angle = Math.random() * Math.PI * 2;
+                    midLat = center.lat + Math.sin(angle) * offsetDeg;
+                    midLng = center.lng + Math.cos(angle) * (offsetDeg / Math.cos(center.lat * Math.PI / 180));
+                }
+                
+                // Add a few points to look like a road polyline
+                const pt1 = {
+                    lat: job.origin.lat * 0.6 + midLat * 0.4 + (Math.random() - 0.5) * 0.002,
+                    lng: job.origin.lng * 0.6 + midLng * 0.4 + (Math.random() - 0.5) * 0.002
+                };
+                const pt2 = { lat: midLat, lng: midLng };
+                const pt3 = {
+                    lat: job.destination.lat * 0.6 + midLat * 0.4 + (Math.random() - 0.5) * 0.002,
+                    lng: job.destination.lng * 0.6 + midLng * 0.4 + (Math.random() - 0.5) * 0.002
+                };
+                
+                path.push(pt1);
+                path.push(pt2);
+                path.push(pt3);
+                path.push(job.destination);
+                
+                // Convert to mock DirectionsRoute leg steps (4-10 steps with realistic street names)
+                const numSteps = Math.floor(Math.random() * 7) + 4; // 4 to 10 steps
+                const streetPool = [
+                    "Boulevard Saint-Laurent",
+                    "Avenue du Parc",
+                    "Rue Saint-Denis",
+                    "Avenue Papineau",
+                    "Boulevard René-Lévesque",
+                    "Rue Sherbrooke",
+                    "Avenue du Mont-Royal",
+                    "Rue Sainte-Catherine",
+                    "Avenue Laurier",
+                    "Chemin de la Côte-des-Neiges",
+                    "Rue Saint-Viateur",
+                    "Rue Notre-Dame",
+                    "Boulevard Saint-Joseph",
+                    "Rue Rachel",
+                    "Avenue de Lorimier",
+                    "Rue d'Iberville",
+                    "Rue Saint-Urbain",
+                    "Avenue Christophe-Colomb",
+                    "Rue de Lanaudière"
+                ];
+                
+                const actionPool = [
+                    "Turn right onto",
+                    "Turn left onto",
+                    "Slight right onto",
+                    "Slight left onto",
+                    "Continue onto",
+                    "Merge onto"
+                ];
+                
+                const tokenLower = streetToken.toLowerCase();
+                const filteredStreetPool = streetPool.filter(s => !s.toLowerCase().includes(tokenLower));
+                
+                function getRandomStreet() {
+                    const idx = Math.floor(Math.random() * filteredStreetPool.length);
+                    return filteredStreetPool[idx];
+                }
+                
+                function getRandomAction() {
+                    const idx = Math.floor(Math.random() * actionPool.length);
+                    return actionPool[idx];
+                }
+                
+                // Choose a random step index for the matching token street (if passesText is true)
+                // We'll place it somewhere in the middle: index 1 to numSteps - 2
+                const matchStepIndex = Math.floor(Math.random() * (numSteps - 2)) + 1;
+                const mockSteps = [];
+                
+                // Step 1: Head toward intersection
+                const startStreet = getRandomStreet();
+                const crossStreet = getRandomStreet();
+                mockSteps.push({
+                    html_instructions: `Head toward intersection on <b>${startStreet}</b> toward <b>${crossStreet}</b>`,
+                    start_location: { lat: () => job.origin.lat, lng: () => job.origin.lng },
+                    end_location: { lat: () => pt1.lat, lng: () => pt1.lng }
+                });
+                
+                // Intermediate steps
+                for (let stepIdx = 1; stepIdx < numSteps - 1; stepIdx++) {
+                    let instructions = "";
+                    if (stepIdx === matchStepIndex) {
+                        if (passesText) {
+                            let fullStreetName = streetToken;
+                            if (!fullStreetName.toLowerCase().includes("rue") && 
+                                !fullStreetName.toLowerCase().includes("avenue") && 
+                                !fullStreetName.toLowerCase().includes("boulevard") && 
+                                !fullStreetName.toLowerCase().includes("chemin")) {
+                                const prefixes = ["Rue", "Avenue", "Boulevard"];
+                                fullStreetName = prefixes[Math.floor(Math.random() * prefixes.length)] + " " + streetToken;
+                            }
+                            instructions = `${getRandomAction()} <b>${fullStreetName}</b>`;
+                        } else {
+                            instructions = `${getRandomAction()} <b>${getRandomStreet()}</b>`;
+                        }
+                    } else {
+                        instructions = `${getRandomAction()} <b>${getRandomStreet()}</b>`;
+                    }
+                    
+                    // Interpolate step start/end locations roughly along path
+                    const tStart = stepIdx / numSteps;
+                    const tEnd = (stepIdx + 1) / numSteps;
+                    const sLat = job.origin.lat * (1 - tStart) + job.destination.lat * tStart;
+                    const sLng = job.origin.lng * (1 - tStart) + job.destination.lng * tStart;
+                    const eLat = job.origin.lat * (1 - tEnd) + job.destination.lat * tEnd;
+                    const eLng = job.origin.lng * (1 - tEnd) + job.destination.lng * tEnd;
+                    
+                    mockSteps.push({
+                        html_instructions: instructions,
+                        start_location: { lat: () => sLat, lng: () => sLng },
+                        end_location: { lat: () => eLat, lng: () => eLng }
+                    });
+                }
+                
+                // Last step: Arrive at destination
+                mockSteps.push({
+                    html_instructions: `Arrive at destination point`,
+                    start_location: { lat: () => pt3.lat, lng: () => pt3.lng },
+                    end_location: { lat: () => job.destination.lat, lng: () => job.destination.lng }
+                });
+                
+                // Calculate distance in meters along the path we generated
+                let simulatedDistMeters = 0;
+                for (let i = 0; i < path.length - 1; i++) {
+                    const pt1 = path[i];
+                    const pt2 = path[i+1];
+                    const latAvg = (pt1.lat + pt2.lat) / 2 * Math.PI / 180;
+                    const latMeters = 111300;
+                    const lngMeters = 111300 * Math.cos(latAvg);
+                    const dx = (pt1.lng - pt2.lng) * lngMeters;
+                    const dy = (pt1.lat - pt2.lat) * latMeters;
+                    simulatedDistMeters += Math.sqrt(dx * dx + dy * dy);
+                }
+                simulatedDistMeters = Math.round(simulatedDistMeters);
+
+                // Start/End Address based on randomized locations
+                const startAddrStr = `${Math.round(100 + Math.random() * 900)} ${startStreet}, Montreal, QC`;
+                const endAddrStr = `${Math.round(100 + Math.random() * 900)} ${crossStreet}, Montreal, QC`;
+
+                // Return directions result interface
+                const result = {
+                    routes: [{
+                        legs: [{
+                            steps: mockSteps,
+                            duration: { text: `${Math.round(job.radius * 3 + 2)} mins` },
+                            duration_in_traffic: { text: `${Math.round(job.radius * 4.5 + Math.random() * 4 + 3)} mins` },
+                            start_location: { lat: () => job.origin.lat, lng: () => job.origin.lng },
+                            end_location: { lat: () => job.destination.lat, lng: () => job.destination.lng },
+                            start_address: startAddrStr,
+                            end_address: endAddrStr,
+                            distance: { value: simulatedDistMeters, text: `${(simulatedDistMeters / 1000).toFixed(1)} km` }
+                        }],
+                        overview_path: path.map(pt => ({
+                            lat: () => pt.lat,
+                            lng: () => pt.lng
+                        }))
+                    }]
+                };
+                
+                setTimeout(() => resolve(result), 50);
+            });
+        }
+
+        // --- THE TWO-STAGE GATE EVALUATION ALGORITHM ---
+        function evaluateRouteIntersection(directionsResult, targetCoords, streetToken, thresholdMeters) {
+            const route = directionsResult.routes[0];
+            const leg = route.legs[0];
+            const overviewPath = route.overview_path; // Array of LatLng
+            
+            // Gather details
+            const duration = leg.duration_in_traffic ? leg.duration_in_traffic.text : leg.duration.text;
+            const steps = leg.steps;
+            
+            // Map the path to raw LatLng coordinate array
+            const rawPath = overviewPath.map(pt => ({ lat: pt.lat(), lng: pt.lng() }));
+            
+            // Prepare results
+            const stepsTextList = steps.map(s => s.html_instructions || s.instructions || '');
+            
+            // --- STAGE 1: FAST TEXT FILTER (PRE-SCREENING) ---
+            const tokenLower = streetToken.toLowerCase();
+            let matchingStepIndex = -1;
+            
+            for (let i = 0; i < steps.length; i++) {
+                const rawInstructions = steps[i].html_instructions || steps[i].instructions || '';
+                const cleanInstructions = rawInstructions.replace(/<[^>]*>/g, '').toLowerCase();
+                if (cleanInstructions.includes(tokenLower)) {
+                    matchingStepIndex = i;
+                    break;
+                }
+            }
+            
+            // Skip geometry validation if token not found in steps instructions text
+            if (matchingStepIndex === -1) {
+                return {
+                    passes: false,
+                    distance: null,
+                    duration: duration,
+                    steps: stepsTextList,
+                    path: rawPath,
+                    startAddress: leg.start_address || '',
+                    endAddress: leg.end_address || '',
+                    totalDistanceMeters: leg.distance ? leg.distance.value : 0
+                };
+            }
+            
+            // --- STAGE 2: SEGMENT GEOMETRY VALIDATION ---
+            // Isolate the step where it appeared, plus adjacent points in overview_path
+            const step = steps[matchingStepIndex];
+            
+            // Helper to find closest index in overviewPath
+            function getClosestIndex(coords, path) {
+                let min = Infinity;
+                let minIdx = 0;
+                for (let idx = 0; idx < path.length; idx++) {
+                    const d = Math.pow(path[idx].lat() - coords.lat(), 2) + Math.pow(path[idx].lng() - coords.lng(), 2);
+                    if (d < min) {
+                        min = d;
+                        minIdx = idx;
+                    }
+                }
+                return minIdx;
+            }
+            
+            const idxStart = getClosestIndex(step.start_location, overviewPath);
+            const idxEnd = getClosestIndex(step.end_location, overviewPath);
+            
+            // Expand by 1 index to capture preceding/following segments
+            const startRange = Math.max(0, idxStart - 1);
+            const endRange = Math.min(overviewPath.length - 1, idxEnd + 1);
+            
+            let minDistance = Infinity;
+            
+            // Calculate distance to each segment in the range
+            for (let k = startRange; k < endRange; k++) {
+                const A = { lat: overviewPath[k].lat(), lng: overviewPath[k].lng() };
+                const B = { lat: overviewPath[k+1].lat(), lng: overviewPath[k+1].lng() };
+                
+                const dist = getDistanceToSegment(targetCoords, A, B);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                }
+            }
+            
+            const passesTarget = minDistance <= thresholdMeters;
+            
+            return {
+                passes: passesTarget,
+                distance: minDistance,
+                duration: duration,
+                steps: stepsTextList,
+                path: rawPath,
+                startAddress: leg.start_address || '',
+                endAddress: leg.end_address || '',
+                totalDistanceMeters: leg.distance ? leg.distance.value : 0
+            };
+        }
+
+        // --- FILTERING & INDEXEDDB DATA BINDING ---
+        
+        // Maps hour to broad day sections
+        function mapHourToTimeSection(hourStr) {
+            const hh = parseInt(hourStr.split(':')[0]);
+            if (hh >= 6 && hh <= 9) return "Early Morning";
+            if (hh >= 11 && hh <= 14) return "Midday";
+            if (hh >= 16 && hh <= 19) return "Late Afternoon";
+            return "Other";
+        }
+
+        // Refresh log table view and database records
+        async function refreshUIFromDatabase() {
+            try {
+                const allRecords = await db.getAllRecords();
+                activeRecords = allRecords;
+                
+                // Enable/disable export button
+                document.getElementById('btn-export-csv').disabled = allRecords.length === 0;
+                
+                applyFiltersAndPopulateTable();
+            } catch (err) {
+                console.error("Error loading records:", err);
+            }
+        }
+
+        function applyFiltersAndPopulateTable() {
+            const propFilter = document.getElementById('filter-property').value;
+            const timeFilter = document.getElementById('filter-time').value;
+            
+            const tbody = document.getElementById('log-table-body');
+            const emptyMsg = document.getElementById('empty-grid-message');
+            tbody.innerHTML = '';
+            
+            // Apply filtering logic
+            const filtered = activeRecords.filter(rec => {
+                // Property filter
+                if (propFilter === 'yes' && !rec.passes_target) return false;
+                if (propFilter === 'no' && rec.passes_target) return false;
+                
+                // Time section filter
+                if (timeFilter === 'early' && rec.time_section !== 'Early Morning') return false;
+                if (timeFilter === 'midday' && rec.time_section !== 'Midday') return false;
+                if (timeFilter === 'afternoon' && rec.time_section !== 'Late Afternoon') return false;
+                if (timeFilter === 'other' && rec.time_section !== 'Other') return false;
+                
+                return true;
+            });
+            
+            filteredRecords = filtered;
+            
+            // Update record count display (Routes counter: aligned to right, not upper case, dynamic x routes of y formatting)
+            const countDisplay = document.getElementById('record-count-display');
+            if (countDisplay) {
+                const isFilterActive = (propFilter !== 'all' || timeFilter !== 'all');
+                if (isFilterActive) {
+                    countDisplay.innerText = `${filtered.length} routes of ${activeRecords.length}`;
+                } else {
+                    countDisplay.innerText = `${activeRecords.length} Routes`;
+                }
+            }
+            
+            if (filtered.length === 0) {
+                emptyMsg.style.display = 'flex';
+                drawRoutesOnMap();
+                return;
+            } else {
+                emptyMsg.style.display = 'none';
+            }
+            
+            // Populate table rows
+            filtered.forEach(rec => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${rec.id}`;
+                if (selectedRecord && selectedRecord.id === rec.id) {
+                    tr.className = 'selected-row';
+                }
+                
+                const passesBadge = rec.passes_target 
+                    ? `<span class="badge badge-success">YES</span>`
+                    : `<span class="badge badge-danger">NO</span>`;
+                
+                const distText = rec.closest_distance_meters !== null 
+                    ? `${rec.closest_distance_meters.toFixed(1)}m` 
+                    : '-';
+                
+                const radiusText = rec.radius_km < 1
+                    ? `${Math.round(rec.radius_km * 1000)} m`
+                    : `${rec.radius_km.toFixed(2)} km`;
+                
+                tr.innerHTML = `
+                    <td>${rec.id}</td>
+                    <td><span class="badge badge-info">${rec.hour}</span></td>
+                    <td>${radiusText}</td>
+                    <td>${passesBadge}</td>
+                    <td style="font-weight: 500;">${distText}</td>
+                    <td style="font-weight: 600; color: var(--accent-cyan);">${rec.travel_time}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-secondary btn-show-details" data-id="${rec.id}" style="padding: 2px 6px; font-size: 0.75rem; line-height: 1; border-radius: 4px; cursor: pointer;" title="Show Route Details">...</button>
+                    </td>
+                `;
+                
+                // Event listener on row select (select and draw on map, only update text details if already open)
+                tr.addEventListener('click', (e) => {
+                    // Ignore clicks directly on the details button here
+                    if (e.target.classList.contains('btn-show-details')) return;
+                    
+                    // Deselect previous
+                    const prevSelected = tbody.querySelector('.selected-row');
+                    if (prevSelected) prevSelected.classList.remove('selected-row');
+                    
+                    tr.classList.add('selected-row');
+                    selectedRecord = rec;
+                    
+                    // If details card is open, update details. Otherwise, just draw route on map.
+                    const detailsCard = document.getElementById('details-card');
+                    if (detailsCard && detailsCard.style.display !== 'none') {
+                        showRouteDetails(rec, false);
+                    } else {
+                        drawRoutesOnMap();
+                    }
+                });
+
+                // Event listener on the "..." button (select, draw, and force open the details card)
+                const btnDetails = tr.querySelector('.btn-show-details');
+                btnDetails.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Stop click from propagating to row click handler
+                    
+                    // Deselect previous
+                    const prevSelected = tbody.querySelector('.selected-row');
+                    if (prevSelected) prevSelected.classList.remove('selected-row');
+                    
+                    tr.classList.add('selected-row');
+                    selectedRecord = rec;
+                    
+                    showRouteDetails(rec, true);
+                });
+                
+                tbody.appendChild(tr);
+            });
+            
+            drawRoutesOnMap();
+        }
+ 
+        // Reactive filter dropdown listeners added in DOMContentLoaded
+ 
+        // Clear database action
+        document.getElementById('btn-clear-database').addEventListener('click', async () => {
+            if (confirm("Are you sure you want to clear all research logs from your local database? This cannot be undone.")) {
+                await db.clearRecords();
+                selectedRecord = null;
+                document.getElementById('details-content').style.display = 'none';
+                document.getElementById('details-placeholder').style.display = 'flex';
+                setDetailsCardVisible(false);
+                
+                // Clear map overlays
+                const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                if (isSandbox) {
+                    if (typeof L !== 'undefined' && leafletMap) {
+                        clearLeafletOverlays();
+                    }
+                    if (sandboxMap) {
+                        sandboxMap.clearSelectedPath();
+                    }
+                    updateMapVisualsFromSettings();
+                } else if (googleMapsLoaded && map) {
+                    clearGoogleRouteOverlays();
+                    updateMapVisualsFromSettings();
+                }
+                
+                await refreshUIFromDatabase();
+            }
+        });
+
+        function setDetailsCardVisible(visible) {
+            const detailsCard = document.getElementById('details-card');
+            const centerCol = document.querySelector('.center-column');
+            if (detailsCard) {
+                detailsCard.style.display = visible ? 'flex' : 'none';
+            }
+            if (centerCol) {
+                if (visible) {
+                    centerCol.classList.add('details-open');
+                } else {
+                    centerCol.classList.remove('details-open');
+                }
+            }
+        }
+
+        // Show Turn steps and highlight on Map
+        function showRouteDetails(record, forceOpen = false) {
+            if (forceOpen) {
+                setDetailsCardVisible(true);
+            }
+
+            document.getElementById('details-placeholder').style.display = 'none';
+            const detailsContent = document.getElementById('details-content');
+            detailsContent.style.display = 'flex';
+            
+            // Populate metadata (Start, End, Total distance - house number and street only)
+            function cleanAddress(addr, coords) {
+                if (addr) {
+                    if (addr.includes(',')) {
+                        return addr.split(',')[0].trim();
+                    }
+                    return addr.trim();
+                }
+                return coords || 'Unknown';
+            }
+            const startAddr = cleanAddress(record.start_address, record.origin_coords);
+            const endAddr = cleanAddress(record.end_address, record.destination_coords);
+            
+            let totalDistText = '0 m';
+            if (record.total_distance_meters !== undefined && record.total_distance_meters !== null && record.total_distance_meters !== 0) {
+                totalDistText = `${record.total_distance_meters} m`;
+            } else if (record.polyline_points && record.polyline_points.length >= 2) {
+                // Calculate from polyline points if missing in record
+                let dist = 0;
+                for (let i = 0; i < record.polyline_points.length - 1; i++) {
+                    const pt1 = record.polyline_points[i];
+                    const pt2 = record.polyline_points[i+1];
+                    const latAvg = (pt1.lat + pt2.lat) / 2 * Math.PI / 180;
+                    const latMeters = 111300;
+                    const lngMeters = 111300 * Math.cos(latAvg);
+                    const dx = (pt1.lng - pt2.lng) * lngMeters;
+                    const dy = (pt1.lat - pt2.lat) * latMeters;
+                    dist += Math.sqrt(dx * dx + dy * dy);
+                }
+                totalDistText = `${Math.round(dist)} m`;
+            }
+            
+            document.getElementById('route-detail-start').innerText = startAddr;
+            document.getElementById('route-detail-end').innerText = endAddr;
+            document.getElementById('route-detail-total').innerText = totalDistText;
+            
+            const stepsList = document.getElementById('route-steps-list');
+            stepsList.innerHTML = '';
+            
+            if (!record.route_steps_text || record.route_steps_text.length === 0) {
+                stepsList.innerHTML = `<div style="color: var(--text-muted); font-style: italic;">No steps logged for this route.</div>`;
+            } else {
+                record.route_steps_text.forEach((stepHtml, index) => {
+                    const stepItem = document.createElement('div');
+                    stepItem.className = 'step-item';
+                    stepItem.innerHTML = `
+                        <span class="step-num">${index + 1}</span>
+                        <span>${stepHtml}</span>
+                    `;
+                    
+                    // Hover effect highlights map segments if google maps loaded
+                    stepItem.addEventListener('mouseenter', () => {
+                        highlightMapStepSegment(record, index);
+                    });
+                    stepItem.addEventListener('mouseleave', () => {
+                        clearMapStepHighlight();
+                    });
+                    
+                    stepsList.appendChild(stepItem);
+                });
+            }
+            
+            // Draw selected polyline and/or all filtered polylines on GIS Map
+            drawRoutesOnMap();
+        }
+
+        // --- MAP ROUTE DRAWINGS ---
+        let currentGoogleRoutePolylines = [];
+        let currentGoogleSelectedRoutePolyline = null;
+        let currentGoogleStepPolyline = null;
+        let currentGoogleSampledPolylines = [];
+        
+        function clearGoogleRouteOverlays() {
+            currentGoogleRoutePolylines.forEach(p => p.setMap(null));
+            currentGoogleRoutePolylines = [];
+            currentGoogleSelectedRoutePolyline = null;
+            if (currentGoogleStepPolyline) {
+                currentGoogleStepPolyline.setMap(null);
+                currentGoogleStepPolyline = null;
+            }
+            currentGoogleSampledPolylines.forEach(p => p.setMap(null));
+            currentGoogleSampledPolylines = [];
+            currentGoogleRouteStartMarkers.forEach(m => m.setMap(null));
+            currentGoogleRouteStartMarkers = [];
+            currentGoogleRouteEndMarkers.forEach(m => m.setMap(null));
+            currentGoogleRouteEndMarkers = [];
+            currentGoogleRouteArrowMarkers.forEach(m => m.setMap(null));
+            currentGoogleRouteArrowMarkers = [];
+        }
+
+        function drawRouteMarkersLeaflet(rec, isSelected) {
+            const pts = rec.polyline_points;
+            if (!pts || pts.length < 2) return;
+            
+            // Draw red start point
+            const startM = L.circleMarker([pts[0].lat, pts[0].lng], {
+                radius: isSelected ? 12 : 9, // 1.5 times of 8 : 6
+                fillColor: '#ef4444', // red
+                color: '#ffffff',
+                weight: isSelected ? 1.5 : 1.0,
+                fillOpacity: isSelected ? 1.0 : 0.6,
+                opacity: isSelected ? 1.0 : 0.6
+            }).addTo(leafletMap).bindPopup(isSelected ? "Route Start" : `Route ${rec.id} Start`);
+            leafletRouteStartMarkers.push(startM);
+            
+            // Draw green end point
+            const endM = L.circleMarker([pts[pts.length - 1].lat, pts[pts.length - 1].lng], {
+                radius: isSelected ? 10.5 : 6.75, // 1.5 times of 7 : 4.5
+                fillColor: '#10b981', // green
+                color: '#ffffff',
+                weight: isSelected ? 1.5 : 1.0,
+                fillOpacity: isSelected ? 1.0 : 0.6,
+                opacity: isSelected ? 1.0 : 0.6
+            }).addTo(leafletMap).bindPopup(isSelected ? "Route End" : `Route ${rec.id} End`);
+            leafletRouteEndMarkers.push(endM);
+        }
+
+        function drawRouteMarkersGoogle(rec, isSelected) {
+            const pts = rec.polyline_points;
+            if (!pts || pts.length < 2) return;
+            
+            const pathLatLngs = pts.map(pt => new google.maps.LatLng(pt.lat, pt.lng));
+            
+            const startM = new google.maps.Marker({
+                position: pathLatLngs[0],
+                map: map,
+                title: isSelected ? "Route Start" : `Route ${rec.id} Start`,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: isSelected ? 12 : 9, // 1.5 times of 8 : 6
+                    fillColor: "#ef4444", // red
+                    fillOpacity: isSelected ? 1.0 : 0.6,
+                    strokeColor: "#ffffff",
+                    strokeWeight: isSelected ? 1.5 : 1.0,
+                    strokeOpacity: isSelected ? 1.0 : 0.6
+                }
+            });
+            currentGoogleRouteStartMarkers.push(startM);
+            
+            const endM = new google.maps.Marker({
+                position: pathLatLngs[pathLatLngs.length - 1],
+                map: map,
+                title: isSelected ? "Route End" : `Route ${rec.id} End`,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: isSelected ? 10.5 : 6.75, // 1.5 times of 7 : 4.5
+                    fillColor: "#10b981", // green
+                    fillOpacity: isSelected ? 1.0 : 0.6,
+                    strokeColor: "#ffffff",
+                    strokeWeight: isSelected ? 1.5 : 1.0,
+                    strokeOpacity: isSelected ? 1.0 : 0.6
+                }
+            });
+            currentGoogleRouteEndMarkers.push(endM);
+        }
+        
+        function drawRoutesOnMap() {
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            const showAll = document.getElementById('chk-show-all-routes').checked;
+            const showSampled = document.getElementById('chk-show-sampled').checked;
+            
+            if (isSandbox) {
+                if (typeof L === 'undefined' || !leafletMap) return;
+                
+                // Clear existing route polylines and markers
+                leafletRoutePolylines.forEach(p => p.remove());
+                leafletRoutePolylines = [];
+                leafletSelectedRoutePolyline = null;
+                
+                leafletSampledPolylines.forEach(p => p.remove());
+                leafletSampledPolylines = [];
+                
+                leafletRouteStartMarkers.forEach(m => m.remove());
+                leafletRouteStartMarkers = [];
+                leafletRouteEndMarkers.forEach(m => m.remove());
+                leafletRouteEndMarkers = [];
+                leafletArrowheadPolygons.forEach(m => m.remove());
+                leafletArrowheadPolygons = [];
+                
+                // 1. Draw route paths
+                if (showAll) {
+                    filteredRecords.forEach(rec => {
+                        if (!rec.polyline_points || rec.polyline_points.length === 0) return;
+                        const latlngs = rec.polyline_points.map(pt => [pt.lat, pt.lng]);
+                        const isSelected = selectedRecord && selectedRecord.id === rec.id;
+                        
+                        const poly = L.polyline(latlngs, {
+                            color: isSelected ? '#06b6d4' : '#fbbf24', // yellow instead of blue
+                            weight: isSelected ? 6 : 3,
+                            opacity: isSelected ? 1.0 : 0.35
+                        }).addTo(leafletMap);
+                        
+                        leafletRoutePolylines.push(poly);
+                        if (isSelected) {
+                            leafletSelectedRoutePolyline = poly;
+                        }
+                        
+                        // Draw start/stop/arrow markers for this route
+                        drawRouteMarkersLeaflet(rec, isSelected);
+                    });
+                } else {
+                    if (selectedRecord && selectedRecord.polyline_points && selectedRecord.polyline_points.length > 0) {
+                        const latlngs = selectedRecord.polyline_points.map(pt => [pt.lat, pt.lng]);
+                        const poly = L.polyline(latlngs, {
+                            color: '#fbbf24', // yellow instead of blue
+                            weight: 5,
+                            opacity: 0.85
+                        }).addTo(leafletMap);
+                        
+                        leafletRoutePolylines.push(poly);
+                        leafletSelectedRoutePolyline = poly;
+                        
+                        // Draw start/stop/arrow markers for the selected route
+                        drawRouteMarkersLeaflet(selectedRecord, true);
+                    }
+                }
+                
+                // 2. Draw sampled straight lines
+                if (showSampled) {
+                    filteredRecords.forEach(rec => {
+                        if (!rec.polyline_points || rec.polyline_points.length < 2) return;
+                        const startPt = rec.polyline_points[0];
+                        const endPt = rec.polyline_points[rec.polyline_points.length - 1];
+                        const isSelected = selectedRecord && selectedRecord.id === rec.id;
+                        
+                        const sampledPoly = L.polyline([[startPt.lat, startPt.lng], [endPt.lat, endPt.lng]], {
+                            color: '#10b981', // green
+                            weight: isSelected ? 3 : 2,
+                            opacity: isSelected ? 0.9 : 0.5
+                        }).addTo(leafletMap);
+                        leafletSampledPolylines.push(sampledPoly);
+                    });
+                }
+                
+                if (sandboxMap) {
+                    if (showAll) {
+                        sandboxMap.setSelectedPath(null);
+                    } else if (selectedRecord) {
+                        sandboxMap.setSelectedPath(selectedRecord.polyline_points);
+                    } else {
+                        sandboxMap.setSelectedPath(null);
+                    }
+                }
+                
+            } else {
+                if (!googleMapsLoaded || !map) return;
+                
+                clearGoogleRouteOverlays();
+                
+                // 1. Draw route paths
+                if (showAll) {
+                    filteredRecords.forEach(rec => {
+                        if (!rec.polyline_points || rec.polyline_points.length === 0) return;
+                        const pathLatLngs = rec.polyline_points.map(pt => new google.maps.LatLng(pt.lat, pt.lng));
+                        const isSelected = selectedRecord && selectedRecord.id === rec.id;
+                        
+                        const poly = new google.maps.Polyline({
+                            path: pathLatLngs,
+                            geodesic: true,
+                            strokeColor: isSelected ? '#06b6d4' : '#fbbf24', // yellow instead of blue
+                            strokeOpacity: isSelected ? 1.0 : 0.35,
+                            strokeWeight: isSelected ? 6 : 3,
+                            map: map
+                        });
+                        currentGoogleRoutePolylines.push(poly);
+                        if (isSelected) {
+                            currentGoogleSelectedRoutePolyline = poly;
+                        }
+                        
+                        // Draw start/stop/arrow markers for this route
+                        drawRouteMarkersGoogle(rec, isSelected);
+                    });
+                } else {
+                    if (selectedRecord && selectedRecord.polyline_points && selectedRecord.polyline_points.length > 0) {
+                        const pathLatLngs = selectedRecord.polyline_points.map(pt => new google.maps.LatLng(pt.lat, pt.lng));
+                        
+                        const poly = new google.maps.Polyline({
+                            path: pathLatLngs,
+                            geodesic: true,
+                            strokeColor: '#fbbf24', // yellow instead of blue
+                            strokeOpacity: 0.85,
+                            strokeWeight: 5,
+                            map: map
+                        });
+                        currentGoogleRoutePolylines.push(poly);
+                        currentGoogleSelectedRoutePolyline = poly;
+                        
+                        // Draw start/stop/arrow markers for the selected route
+                        drawRouteMarkersGoogle(selectedRecord, true);
+                    }
+                }
+                
+                // 2. Draw sampled straight lines
+                if (showSampled) {
+                    filteredRecords.forEach(rec => {
+                        if (!rec.polyline_points || rec.polyline_points.length < 2) return;
+                        const startPt = rec.polyline_points[0];
+                        const endPt = rec.polyline_points[rec.polyline_points.length - 1];
+                        const isSelected = selectedRecord && selectedRecord.id === rec.id;
+                        
+                        const sampledPoly = new google.maps.Polyline({
+                            path: [new google.maps.LatLng(startPt.lat, startPt.lng), new google.maps.LatLng(endPt.lat, endPt.lng)],
+                            geodesic: true,
+                            strokeColor: '#10b981', // green
+                            strokeOpacity: isSelected ? 0.9 : 0.5,
+                            strokeWeight: isSelected ? 3 : 2,
+                            map: map
+                        });
+                        currentGoogleSampledPolylines.push(sampledPoly);
+                    });
+                }
+            }
+        }
+
+        function highlightMapStepSegment(record, stepIndex) {
+            if (!googleMapsLoaded || !map || !record.polyline_points || record.polyline_points.length === 0) return;
+            if (currentGoogleSelectedRoutePolyline) {
+                currentGoogleSelectedRoutePolyline.setOptions({ strokeColor: '#06b6d4', strokeWeight: 7 });
+            }
+        }
+
+        function clearMapStepHighlight() {
+            if (currentGoogleSelectedRoutePolyline) {
+                currentGoogleSelectedRoutePolyline.setOptions({ strokeColor: '#fbbf24', strokeWeight: 5 });
+            }
+        }
+
+        // --- CSV PORTABILITY EXPORTER ---
+        document.getElementById('btn-export-csv').addEventListener('click', () => {
+            if (activeRecords.length === 0) return;
+            
+            const propFilter = document.getElementById('filter-property').value;
+            const timeFilter = document.getElementById('filter-time').value;
+            
+            // Filter records based on active UI selections
+            const filtered = activeRecords.filter(rec => {
+                if (propFilter === 'yes' && !rec.passes_target) return false;
+                if (propFilter === 'no' && rec.passes_target) return false;
+                if (timeFilter === 'early' && rec.time_section !== 'Early Morning') return false;
+                if (timeFilter === 'midday' && rec.time_section !== 'Midday') return false;
+                if (timeFilter === 'afternoon' && rec.time_section !== 'Late Afternoon') return false;
+                if (timeFilter === 'other' && rec.time_section !== 'Other') return false;
+                return true;
+            });
+            
+            if (filtered.length === 0) {
+                alert("No records to export under current filters.");
+                return;
+            }
+            
+            const headers = [
+                'ID',
+                'Hour',
+                'Time Section',
+                'Origin Lat',
+                'Origin Lng',
+                'Destination Lat',
+                'Destination Lng',
+                'Radius (km)',
+                'Passes Target Bottleneck',
+                'Closest Distance (meters)',
+                'Travel Time',
+                'Start Address',
+                'End Address',
+                'Total Distance (meters)',
+                'Route Steps Text'
+            ];
+            
+            const rows = filtered.map(r => {
+                const originCoords = r.origin_coords.split(',').map(c => c.trim());
+                const destCoords = r.destination_coords.split(',').map(c => c.trim());
+                
+                // Escape quotes for CSV values
+                const startAddrEscaped = (r.start_address || r.origin_coords || '').replace(/"/g, '""');
+                const endAddrEscaped = (r.end_address || r.destination_coords || '').replace(/"/g, '""');
+                const totalDistVal = r.total_distance_meters !== undefined ? r.total_distance_meters : '';
+                
+                return [
+                    r.id,
+                    r.hour,
+                    r.time_section,
+                    originCoords[0],
+                    originCoords[1],
+                    destCoords[0],
+                    destCoords[1],
+                    r.radius_km,
+                    r.passes_target ? 'YES' : 'NO',
+                    r.closest_distance_meters !== null ? r.closest_distance_meters.toFixed(2) : 'N/A',
+                    r.travel_time,
+                    `"${startAddrEscaped}"`,
+                    `"${endAddrEscaped}"`,
+                    totalDistVal,
+                    `"${r.route_steps_text.join(' | ').replace(/"/g, '""').replace(/<[^>]*>/g, '')}"`
+                ];
+            });
+            
+            const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `OD_Traffic_Bottleneck_Logs_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+    </script>
+</body>
+</html>
