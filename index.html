@@ -442,6 +442,34 @@
             color: var(--accent-cyan);
         }
 
+        /* Saved Reports Styles */
+        .reports-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+            border-radius: var(--radius-md);
+            border: 1px solid transparent;
+        }
+        .reports-panel.open {
+            max-height: 250px;
+            overflow-y: auto;
+            border-color: var(--border-color);
+            background: rgba(15, 23, 42, 0.4);
+            padding: 8px;
+        }
+        .btn-report-action {
+            opacity: 0.6;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-report-action:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+        .report-list-item:hover {
+            border-color: rgba(6, 182, 212, 0.4) !important;
+            background: rgba(30, 41, 59, 0.7) !important;
+        }
+
         /* Progress Statistics panel */
         .progress-panel {
             background: rgba(15, 23, 42, 0.7);
@@ -981,6 +1009,20 @@
                     </div>
                 </div>
 
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
+
+                <!-- Saved Reports Section -->
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 4px 0;" id="btn-toggle-reports">
+                        <label style="margin: 0; font-weight: 700; color: var(--accent-cyan); cursor: pointer; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Saved Reports (<span id="saved-reports-count">0</span>)</label>
+                        <span id="reports-toggle-arrow" style="font-size: 0.75rem; color: var(--text-muted); transition: transform 0.2s;">▼</span>
+                    </div>
+                    <div id="saved-reports-container" class="reports-panel open" style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
+                        <div id="saved-reports-list" style="display: flex; flex-direction: column; gap: 6px; width: 100%;"></div>
+                        <div id="saved-reports-placeholder" style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 10px 0;">No saved reports.</div>
+                    </div>
+                </div>
+
                 <hr style="border: 0; border-top: 1px solid var(--border-color);">
 
                 <!-- Execution Actions -->
@@ -1030,7 +1072,13 @@
             <div class="glass-card grid-card">
                 <div class="card-header" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 16px; align-items: stretch;">
                     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                        <h2>Routes</h2>
+                        <div style="display: flex; align-items: center; gap: 10px;" id="routes-title-container">
+                            <h2>Routes</h2>
+                            <div id="active-report-badge" style="display: none; align-items: center; gap: 6px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; color: var(--accent-cyan);">
+                                <span style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; max-width: 180px; white-space: nowrap;" id="active-report-name">Viewing Report</span>
+                                <button id="btn-exit-report-view" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.75rem; padding: 0 2px; line-height: 1;" title="Exit Report View">✕</button>
+                            </div>
+                        </div>
                         <span id="record-count-display" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: normal; white-space: nowrap;">0 Routes</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; width: 100%;">
@@ -1174,7 +1222,7 @@
             constructor() {
                 this.dbName = 'TrafficResearchDB';
                 this.storeName = 'TrafficResearchLog';
-                this.version = 1;
+                this.version = 2;
                 this.db = null;
             }
 
@@ -1191,8 +1239,19 @@
                     };
                     request.onupgradeneeded = (e) => {
                         const db = e.target.result;
+                        let logStore;
                         if (!db.objectStoreNames.contains(this.storeName)) {
-                            db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                            logStore = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                        } else {
+                            logStore = request.transaction.objectStore(this.storeName);
+                        }
+                        
+                        if (!logStore.indexNames.contains('reportId')) {
+                            logStore.createIndex('reportId', 'reportId', { unique: false });
+                        }
+
+                        if (!db.objectStoreNames.contains('TrafficReports')) {
+                            db.createObjectStore('TrafficReports', { keyPath: 'id', autoIncrement: true });
                         }
                     };
                 });
@@ -1207,6 +1266,20 @@
                     const transaction = this.db.transaction([this.storeName], 'readwrite');
                     const store = transaction.objectStore(this.storeName);
                     const request = store.add(record);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            updateRecord(record) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction([this.storeName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.put(record);
                     request.onsuccess = (e) => resolve(e.target.result);
                     request.onerror = (e) => reject(e.target.error);
                 });
@@ -1232,10 +1305,112 @@
                         reject(new Error("Database not initialized"));
                         return;
                     }
-                    const transaction = this.db.transaction([this.storeName], 'readwrite');
+                    const transaction = this.db.transaction([this.storeName, 'TrafficReports'], 'readwrite');
                     const store = transaction.objectStore(this.storeName);
-                    const request = store.clear();
-                    request.onsuccess = (e) => resolve();
+                    const reportsStore = transaction.objectStore('TrafficReports');
+                    
+                    const req1 = store.clear();
+                    const req2 = reportsStore.clear();
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            addReport(report) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['TrafficReports'], 'readwrite');
+                    const store = transaction.objectStore('TrafficReports');
+                    const request = store.add(report);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            updateReportName(reportId, newName) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['TrafficReports'], 'readwrite');
+                    const store = transaction.objectStore('TrafficReports');
+                    const getRequest = store.get(reportId);
+                    getRequest.onsuccess = (e) => {
+                        const report = e.target.result;
+                        if (report) {
+                            report.name = newName;
+                            const putRequest = store.put(report);
+                            putRequest.onsuccess = () => resolve();
+                            putRequest.onerror = (errEvent) => reject(errEvent.target.error);
+                        } else {
+                            reject(new Error("Report not found"));
+                        }
+                    };
+                    getRequest.onerror = (errEvent) => reject(errEvent.target.error);
+                });
+            }
+
+            getAllReports() {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['TrafficReports'], 'readonly');
+                    const store = transaction.objectStore('TrafficReports');
+                    const request = store.getAll();
+                    request.onsuccess = (e) => {
+                        const reports = e.target.result || [];
+                        reports.sort((a, b) => b.timestamp - a.timestamp);
+                        resolve(reports);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            deleteReport(reportId) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['TrafficReports', this.storeName], 'readwrite');
+                    
+                    transaction.onerror = (e) => reject(e.target.error);
+                    transaction.oncomplete = () => resolve();
+
+                    const reportsStore = transaction.objectStore('TrafficReports');
+                    reportsStore.delete(reportId);
+
+                    const logStore = transaction.objectStore(this.storeName);
+                    const index = logStore.index('reportId');
+                    const request = index.openCursor(IDBKeyRange.only(reportId));
+                    request.onsuccess = (e) => {
+                        const cursor = e.target.result;
+                        if (cursor) {
+                            cursor.delete();
+                            cursor.continue();
+                        }
+                    };
+                });
+            }
+
+            getReportLogs(reportId) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const index = store.index('reportId');
+                    const request = index.getAll(IDBKeyRange.only(reportId));
+                    request.onsuccess = (e) => resolve(e.target.result || []);
                     request.onerror = (e) => reject(e.target.error);
                 });
             }
@@ -1244,6 +1419,7 @@
         // --- GLOBAL APP STATE ---
         const db = new TrafficDBManager();
         let activeRecords = [];
+        let activeReportId = null;
         let engineHalted = false;
         let isEngineRunning = false;
         let googleMapsLoaded = false;
@@ -1873,6 +2049,7 @@
             // Init database
             try {
                 await db.open();
+                await migrateLegacyLogs();
                 await refreshUIFromDatabase();
             } catch (err) {
                 console.warn("IndexedDB not available (private browsing?). Falling back to in-memory storage.", err);
@@ -2030,6 +2207,24 @@
             // Draw initial map elements from current default settings after a brief initialization wait
             setTimeout(updateMapVisualsFromSettings, 400);
 
+            // Toggle Saved Reports panel
+            document.getElementById('btn-toggle-reports').addEventListener('click', () => {
+                const reportsContainer = document.getElementById('saved-reports-container');
+                const toggleArrow = document.getElementById('reports-toggle-arrow');
+                const isOpen = reportsContainer.classList.toggle('open');
+                if (isOpen) {
+                    toggleArrow.style.transform = 'rotate(0deg)';
+                } else {
+                    toggleArrow.style.transform = 'rotate(-90deg)';
+                }
+            });
+
+            // Exit report view button
+            document.getElementById('btn-exit-report-view').addEventListener('click', (e) => {
+                e.stopPropagation();
+                exitReportView();
+            });
+
             // Auto load Google Maps script if API key is stored and sandbox mode was saved as false
             const initialSandbox = document.getElementById('sandbox-checkbox').checked;
             const initialKey = document.getElementById('api-key').value.trim();
@@ -2058,16 +2253,58 @@
         // Fallback storage when IndexedDB is blocked (e.g. strict private window)
         function setupInMemoryDatabaseFallback() {
             const memoryStorage = [];
+            const memoryReports = [];
             db.open = () => Promise.resolve(true);
             db.addRecord = (record) => {
                 record.id = memoryStorage.length + 1;
                 memoryStorage.push(record);
                 return Promise.resolve(record.id);
             };
+            db.updateRecord = (record) => {
+                const index = memoryStorage.findIndex(r => r.id === record.id);
+                if (index !== -1) {
+                    memoryStorage[index] = record;
+                }
+                return Promise.resolve(record.id);
+            };
             db.getAllRecords = () => Promise.resolve([...memoryStorage]);
             db.clearRecords = () => {
                 memoryStorage.length = 0;
+                memoryReports.length = 0;
                 return Promise.resolve();
+            };
+            db.addReport = (report) => {
+                report.id = memoryReports.length + 1;
+                memoryReports.push(report);
+                return Promise.resolve(report.id);
+            };
+            db.updateReportName = (reportId, newName) => {
+                const report = memoryReports.find(r => r.id === reportId);
+                if (report) {
+                    report.name = newName;
+                    return Promise.resolve();
+                }
+                return Promise.reject(new Error("Report not found"));
+            };
+            db.getAllReports = () => {
+                const sorted = [...memoryReports].sort((a, b) => b.timestamp - a.timestamp);
+                return Promise.resolve(sorted);
+            };
+            db.deleteReport = (reportId) => {
+                const index = memoryReports.findIndex(r => r.id === reportId);
+                if (index !== -1) {
+                    memoryReports.splice(index, 1);
+                }
+                for (let i = memoryStorage.length - 1; i >= 0; i--) {
+                    if (memoryStorage[i].reportId === reportId) {
+                        memoryStorage.splice(i, 1);
+                    }
+                }
+                return Promise.resolve();
+            };
+            db.getReportLogs = (reportId) => {
+                const logs = memoryStorage.filter(r => r.reportId === reportId);
+                return Promise.resolve(logs);
             };
         }
 
@@ -2741,6 +2978,7 @@
         document.getElementById('btn-start-run').addEventListener('click', async () => {
             if (isEngineRunning) return;
             
+            let reportId = null;
             const isSandbox = document.getElementById('sandbox-checkbox').checked;
             
             // Input Validation
@@ -2836,6 +3074,39 @@
                 console.error(err);
                 // Fail-safe Montreal coords
                 baselineCoords = { lat: 45.5265, lng: -73.5877 };
+            }
+
+            // Create a new report record in DB
+            const timestamp = Date.now();
+            const dateObj = new Date(timestamp);
+            const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const dateStr = dateObj.toLocaleDateString();
+            const defaultName = `${streetToken} - ${hours.length} blocks (${timeStr} ${dateStr})`;
+            
+            try {
+                reportId = await db.addReport({
+                    name: defaultName,
+                    timestamp: timestamp,
+                    parameters: {
+                        targetAddress: address,
+                        baselineCoords: baselineCoords,
+                        radiusStart: parseFloat(document.getElementById('radius-start').value),
+                        radiusMultiplier: radiusMultiplier,
+                        radiusCircles: circlesCount,
+                        symmetryPoints: symmetryPointsCount,
+                        proximityThreshold: proximityThreshold,
+                        streetToken: streetToken,
+                        selectedHours: hours
+                    }
+                });
+                activeReportId = reportId;
+                
+                // Show in badge
+                document.getElementById('active-report-badge').style.display = 'flex';
+                document.getElementById('active-report-name').innerText = defaultName;
+                document.getElementById('active-report-name').title = defaultName;
+            } catch (err) {
+                console.error("Failed to create search report in database:", err);
             }
             
             // 2. Generate Radius tiers
@@ -2992,7 +3263,8 @@
                         polyline_points: evaluation.path,
                         start_address: evaluation.startAddress || '',
                         end_address: evaluation.endAddress || '',
-                        total_distance_meters: evaluation.totalDistanceMeters || 0
+                        total_distance_meters: evaluation.totalDistanceMeters || 0,
+                        reportId: reportId
                     };
                     
                     await db.addRecord(record);
@@ -3011,7 +3283,8 @@
                         closest_distance_meters: null,
                         travel_time: "API Error",
                         route_steps_text: ["Routing error occurred: " + err.message],
-                        polyline_points: []
+                        polyline_points: [],
+                        reportId: reportId
                     });
                 }
                 
@@ -3452,7 +3725,211 @@
         }
 
         // --- FILTERING & INDEXEDDB DATA BINDING ---
-        
+
+        async function loadReportById(reportId) {
+            try {
+                const reports = await db.getAllReports();
+                const report = reports.find(r => r.id === reportId);
+                if (!report) {
+                    alert("Report not found!");
+                    return;
+                }
+                
+                const params = report.parameters || {};
+                document.getElementById('target-address').value = params.targetAddress || '';
+                document.getElementById('radius-start').value = params.radiusStart || 200;
+                document.getElementById('radius-multiplier').value = params.radiusMultiplier || 2.0;
+                document.getElementById('radius-circles').value = params.radiusCircles || 5;
+                document.getElementById('proximity-threshold').value = params.proximityThreshold || 100;
+                document.getElementById('street-token').value = params.streetToken || '';
+                
+                if (params.symmetryPoints) {
+                    document.getElementById('symmetry-points').value = params.symmetryPoints;
+                }
+                
+                if (params.baselineCoords) {
+                    baselineCoords = params.baselineCoords;
+                }
+                
+                const selectedHours = params.selectedHours || [];
+                const checkboxes = document.querySelectorAll('input[name="time-block"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = selectedHours.includes(cb.value);
+                });
+                
+                activeReportId = report.id;
+                
+                document.getElementById('active-report-badge').style.display = 'flex';
+                document.getElementById('active-report-name').innerText = report.name;
+                document.getElementById('active-report-name').title = report.name;
+                
+                const isSandbox = document.getElementById('sandbox-checkbox').checked;
+                if (isSandbox) {
+                    if (typeof L !== 'undefined' && leafletMap) {
+                        leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
+                    }
+                } else {
+                    if (googleMapsLoaded && map) {
+                        map.setCenter(baselineCoords);
+                    }
+                }
+                
+                updateRunEstimates();
+                updateMapVisualsFromSettings();
+                
+                await refreshUIFromDatabase();
+                
+                showRunMessageToast(`Loaded report: ${report.name}`, 'success');
+            } catch (err) {
+                console.error("Failed to load report:", err);
+                alert("Failed to load report: " + err.message);
+            }
+        }
+
+        async function deleteReportById(reportId, reportName) {
+            if (confirm(`Are you sure you want to delete the report "${reportName}" and all of its routes? This cannot be undone.`)) {
+                try {
+                    if (activeReportId === reportId) {
+                        activeReportId = null;
+                        document.getElementById('active-report-badge').style.display = 'none';
+                    }
+                    await db.deleteReport(reportId);
+                    showRunMessageToast(`Deleted report: ${reportName}`, 'success');
+                    await refreshUIFromDatabase();
+                } catch (err) {
+                    console.error("Failed to delete report:", err);
+                    alert("Failed to delete report: " + err.message);
+                }
+            }
+        }
+
+        async function renameReportById(reportId, currentName) {
+            const newName = prompt("Enter a new name for this report:", currentName);
+            if (newName && newName.trim() !== "" && newName !== currentName) {
+                try {
+                    await db.updateReportName(reportId, newName.trim());
+                    showRunMessageToast("Report renamed successfully", "success");
+                    
+                    if (activeReportId === reportId) {
+                        document.getElementById('active-report-name').innerText = newName.trim();
+                        document.getElementById('active-report-name').title = newName.trim();
+                    }
+                    
+                    await refreshSavedReportsUI();
+                } catch (err) {
+                    console.error("Failed to rename report:", err);
+                    alert("Failed to rename report: " + err.message);
+                }
+            }
+        }
+
+        async function refreshSavedReportsUI() {
+            try {
+                const reports = await db.getAllReports();
+                
+                document.getElementById('saved-reports-count').innerText = reports.length;
+                
+                const listContainer = document.getElementById('saved-reports-list');
+                const placeholder = document.getElementById('saved-reports-placeholder');
+                
+                listContainer.innerHTML = '';
+                
+                if (reports.length === 0) {
+                    placeholder.style.display = 'block';
+                    return;
+                }
+                
+                placeholder.style.display = 'none';
+                
+                reports.forEach(report => {
+                    const item = document.createElement('div');
+                    item.className = 'report-list-item-container';
+                    item.style.width = '100%';
+                    
+                    const date = new Date(report.timestamp);
+                    const dateString = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const params = report.parameters || {};
+                    
+                    item.innerHTML = `
+                        <div class="report-list-item" style="display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: var(--radius-md); background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); transition: all 0.2s; width: 100%; margin-bottom: 6px;">
+                            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; width: 100%;">
+                                <span class="report-item-title" style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); cursor: pointer; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; flex: 1;" title="${report.name}">${report.name}</span>
+                                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                    <button class="btn-report-action btn-load" title="Load Search Parameters" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; font-size: 0.85rem; padding: 2px;">📂</button>
+                                    <button class="btn-report-action btn-rename" title="Rename Report" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; padding: 2px;">✏️</button>
+                                    <button class="btn-report-action btn-delete" title="Delete Report" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.85rem; padding: 2px;">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="report-item-meta" style="font-size: 0.65rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <span style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 140px;">${params.streetToken || 'No street token'}</span>
+                                <span>${dateString}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    item.querySelector('.btn-load').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        loadReportById(report.id);
+                    });
+                    item.querySelector('.report-item-title').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        loadReportById(report.id);
+                    });
+                    item.querySelector('.btn-rename').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        renameReportById(report.id, report.name);
+                    });
+                    item.querySelector('.btn-delete').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteReportById(report.id, report.name);
+                    });
+                    
+                    listContainer.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Failed to refresh saved reports list UI:", err);
+            }
+        }
+
+        async function migrateLegacyLogs() {
+            try {
+                const allRecords = await db.getAllRecords();
+                const legacyRecords = allRecords.filter(rec => rec.reportId === undefined);
+                if (legacyRecords.length > 0) {
+                    console.log(`Found ${legacyRecords.length} legacy log records without reportId. Migrating...`);
+                    
+                    const reportId = await db.addReport({
+                        name: "Imported Logs (Legacy)",
+                        timestamp: Date.now(),
+                        parameters: {
+                            targetAddress: document.getElementById('target-address').value.trim() || "Imported Intersection",
+                            baselineCoords: baselineCoords,
+                            radiusStart: parseFloat(document.getElementById('radius-start').value) || 200,
+                            radiusMultiplier: parseFloat(document.getElementById('radius-multiplier').value) || 2.0,
+                            radiusCircles: parseInt(document.getElementById('radius-circles').value) || 5,
+                            symmetryPoints: parseInt(document.getElementById('symmetry-points').value) || 8,
+                            proximityThreshold: parseFloat(document.getElementById('proximity-threshold').value) || 100,
+                            streetToken: document.getElementById('street-token').value.trim() || "Imported",
+                            selectedHours: ["08:00", "12:00", "17:00"]
+                        }
+                    });
+
+                    for (const rec of legacyRecords) {
+                        rec.reportId = reportId;
+                        await db.updateRecord(rec);
+                    }
+                }
+            } catch (err) {
+                console.warn("Legacy log migration failed:", err);
+            }
+        }
+
+        async function exitReportView() {
+            activeReportId = null;
+            document.getElementById('active-report-badge').style.display = 'none';
+            await refreshUIFromDatabase();
+        }
+
         // Maps hour to broad day sections
         function mapHourToTimeSection(hourStr) {
             const hh = parseInt(hourStr.split(':')[0]);
@@ -3465,7 +3942,14 @@
         // Refresh log table view and database records
         async function refreshUIFromDatabase() {
             try {
-                const allRecords = await db.getAllRecords();
+                await refreshSavedReportsUI();
+
+                let allRecords;
+                if (activeReportId !== null) {
+                    allRecords = await db.getReportLogs(activeReportId);
+                } else {
+                    allRecords = await db.getAllRecords();
+                }
                 activeRecords = allRecords;
                 
                 // Enable/disable export button
@@ -3599,7 +4083,9 @@
  
         // Clear database action
         document.getElementById('btn-clear-database').addEventListener('click', async () => {
-            if (confirm("Are you sure you want to clear all research logs from your local database? This cannot be undone.")) {
+            if (confirm("Are you sure you want to clear all research logs and saved reports from your local database? This cannot be undone.")) {
+                activeReportId = null;
+                document.getElementById('active-report-badge').style.display = 'none';
                 await db.clearRecords();
                 selectedRecord = null;
                 document.getElementById('details-content').style.display = 'none';
