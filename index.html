@@ -836,6 +836,9 @@
                 grid-column: span 1;
             }
         }
+        .pin-cursor, .pin-cursor * {
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><text y='26' font-size='24'>📍</text></svg>") 4 24, cell !important;
+        }
     </style>
 </head>
 <body>
@@ -843,8 +846,8 @@
     <!-- App Header -->
     <header>
         <div class="header-title-container">
-            <button class="btn btn-secondary" id="btn-toggle-sidebar" style="padding: 6px 10px; font-size: 0.75rem; margin-right: 4px;">
-                <span id="toggle-sidebar-icon">◀</span> Control Panel
+            <button class="btn btn-secondary" id="btn-toggle-sidebar-header" style="padding: 4px 8px; font-size: 0.75rem; width: 28px; height: 28px; display: none; align-items: center; justify-content: center; border-radius: var(--radius-sm); margin-right: 4px;" title="Expand Panel" type="button">
+                ▶
             </button>
             <div class="header-logo">Ω</div>
             <div>
@@ -857,8 +860,14 @@
                 <div id="status-indicator" class="status-dot"></div>
                 <span id="status-text">Engine Idle</span>
             </div>
+            <button class="btn btn-primary" id="btn-new-report" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));" type="button">
+                ➕ New Report
+            </button>
             <button class="btn btn-secondary" id="btn-open-reports" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px;" type="button">
-                📂 Reports (<span id="saved-reports-count">0</span>)
+                <span>📂 Reports (<span id="saved-reports-count">0</span>)</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-map-settings" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px;" type="button">
+                ⚙️ Map Engine
             </button>
         </div>
     </header>
@@ -868,45 +877,18 @@
 
         <!-- Column 1: Control & Input Panel (Left) -->
         <aside class="glass-card">
-            <div class="card-header">
-                <h2>Control Panel</h2>
+            <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;">
+                <h2 style="margin: 0; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-primary);">Report</h2>
+                <button class="btn btn-secondary" id="btn-toggle-sidebar-sidebar" style="padding: 4px 8px; font-size: 0.75rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm);" title="Collapse Panel" type="button">
+                    ◀
+                </button>
             </div>
             <div class="card-body">
                 
                 <!-- Hidden checkbox to keep javascript logic completely compatible -->
                 <input type="checkbox" id="sandbox-checkbox" checked style="display: none;">
 
-                <!-- Map Engine Mode segmented switcher -->
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label style="margin-bottom: 6px; font-size: 0.8rem; display: block;">Map Engine Mode</label>
-                    <div class="mode-switcher-segmented">
-                        <button type="button" class="mode-btn active" id="btn-mode-sandbox" data-mode="sandbox">
-                            <span class="icon">🤖</span> Sandbox
-                        </button>
-                        <button type="button" class="mode-btn" id="btn-mode-google" data-mode="google">
-                            <span class="icon">🗺️</span> Google Maps
-                        </button>
-                    </div>
-                    <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-                        <a id="lnk-toggle-api-key" class="api-config-toggle" style="display: none;">⚙️ Configure Key</a>
-                    </div>
-                </div>
 
-                <!-- Collapsible API Key Configuration Panel -->
-                <div id="api-key-config-panel" class="collapsible-panel">
-                    <div class="form-group" style="margin-bottom: 8px;">
-                        <label for="api-key" style="font-size: 0.7rem; color: var(--text-secondary);">Google Maps API Key</label>
-                        <div class="input-wrapper">
-                            <input type="password" id="api-key" placeholder="Enter API Key to load Google Maps" style="font-size: 0.75rem; padding: 6px 10px;">
-                            <button class="toggle-password-btn" id="toggle-api-key" type="button" style="padding: 6px;">👁️</button>
-                        </div>
-                    </div>
-                    <button class="btn btn-secondary" id="btn-load-map" style="font-size: 0.7rem; padding: 6px; width: 100%; margin-top: 4px;">
-                        Load Google Maps API
-                    </button>
-                </div>
-
-                <hr style="border: 0; border-top: 1px solid var(--border-color); margin-bottom: 12px;">
 
                 <!-- Target Location Area -->
                 <div class="form-group">
@@ -916,18 +898,21 @@
                     </div>
                 </div>
 
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label for="proximity-threshold">Threshold (m)</label>
-                        <div class="input-wrapper">
+                <div class="form-group">
+                    <label for="proximity-threshold">Threshold (m)</label>
+                    <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
+                        <div class="input-wrapper" style="flex: 1;">
                             <input type="number" id="proximity-threshold" value="100" min="10" max="2000" step="10">
                         </div>
+                        <button type="button" id="btn-pin-mode" class="btn btn-secondary" style="padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1rem; border-radius: 4px; flex-shrink: 0;" title="Click to select target location on map">
+                            📍
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <label for="street-token">Street Token</label>
-                        <div class="input-wrapper">
-                            <input type="text" id="street-token" value="Saint-Joseph" placeholder="Auto-extracted" title="Case-insensitive substring match in turn instructions">
-                        </div>
+                </div>
+                <div class="form-group" style="display: none;">
+                    <label for="street-token">Street Token</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="street-token" value="Saint-Joseph" placeholder="Auto-extracted" title="Case-insensitive substring match in turn instructions">
                     </div>
                 </div>
 
@@ -1011,12 +996,9 @@
                     <button class="btn btn-primary" id="btn-start-run">Start Run</button>
                     <button class="btn btn-danger" id="btn-halt-run" disabled>Halt</button>
                 </div>
-                <div style="margin-top: 10px; display: flex; gap: 8px;">
-                    <button class="btn btn-secondary" id="btn-export-csv" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;" disabled>
+                <div style="margin-top: 10px;">
+                    <button class="btn btn-secondary" id="btn-export-csv" style="width: 100%; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;" disabled>
                         💾 Export CSV
-                    </button>
-                    <button class="btn btn-primary" id="btn-new-report" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));">
-                        ➕ New Report
                     </button>
                 </div>
 
@@ -1060,7 +1042,7 @@
                                 <button id="btn-exit-report-view" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.75rem; padding: 0 2px; line-height: 1;" title="Exit Report View">✕</button>
                             </div>
                         </div>
-                        <span id="record-count-display" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: normal; white-space: nowrap;">0 Routes</span>
+                        <span id="record-count-display" style="display: none;">0 Routes</span>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; width: 100%;">
                         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1194,6 +1176,58 @@
             </div>
         </section>
 
+    </div>
+
+    <!-- Saved Reports Slide-out Drawer (Right) -->
+    <div id="reports-drawer-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 998; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
+    
+    <div id="reports-drawer" class="glass-card" style="position: fixed; top: 0; right: 0; width: 360px; height: 100vh; z-index: 999; border-radius: 0; border-left: 1px solid var(--border-color); border-top: none; border-bottom: none; border-right: none; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -10px 0 30px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Saved Reports</h2>
+            <button id="btn-close-reports" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Close Saved Reports">✕</button>
+        </div>
+        <div class="card-body" style="padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;">
+            <div id="saved-reports-list" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
+            <div id="saved-reports-placeholder" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 20px 0;">No saved reports.</div>
+        </div>
+    </div>
+
+    <!-- Map Engine Settings Popup/Modal -->
+    <div id="map-settings-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
+    
+    <div id="map-settings-popup" class="glass-card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 360px; z-index: 1001; display: none; opacity: 0; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Map Engine Settings</h2>
+            <button id="btn-close-map-settings" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Close Settings">✕</button>
+        </div>
+        <div class="card-body" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+            <!-- Map Engine Mode segmented switcher -->
+            <div class="form-group" style="margin-bottom: 0;">
+                <label style="margin-bottom: 8px; font-size: 0.8rem; display: block; font-weight: 600; color: var(--text-secondary);">Select Engine Mode</label>
+                <div class="mode-switcher-segmented">
+                    <button type="button" class="mode-btn active" id="btn-mode-sandbox" data-mode="sandbox" style="flex: 1;">
+                        <span class="icon">🤖</span> Sandbox
+                    </button>
+                    <button type="button" class="mode-btn" id="btn-mode-google" data-mode="google" style="flex: 1;">
+                        <span class="icon">🗺️</span> Google Maps
+                    </button>
+                </div>
+            </div>
+
+            <!-- API Key Configuration Panel -->
+            <div id="api-key-config-panel" style="display: none; flex-direction: column; gap: 12px; margin-top: 4px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="api-key" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block;">Google Maps API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="api-key" placeholder="Enter API Key to load Google Maps" style="font-size: 0.75rem; padding: 8px 10px;">
+                        <button class="toggle-password-btn" id="toggle-api-key" type="button" style="padding: 8px;">👁️</button>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" id="btn-load-map" style="font-size: 0.75rem; padding: 8px; width: 100%; margin-top: 4px; font-weight: 600; display: block;">
+                    Load Google Maps API
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Application Code -->
@@ -1336,6 +1370,30 @@
                 });
             }
 
+            updateReportParameters(reportId, parameters) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['TrafficReports'], 'readwrite');
+                    const store = transaction.objectStore('TrafficReports');
+                    const getRequest = store.get(reportId);
+                    getRequest.onsuccess = (e) => {
+                        const report = e.target.result;
+                        if (report) {
+                            report.parameters = parameters;
+                            const putRequest = store.put(report);
+                            putRequest.onsuccess = () => resolve();
+                            putRequest.onerror = (errEvent) => reject(errEvent.target.error);
+                        } else {
+                            reject(new Error("Report not found"));
+                        }
+                    };
+                    getRequest.onerror = (errEvent) => reject(errEvent.target.error);
+                });
+            }
+
             getAllReports() {
                 return new Promise((resolve, reject) => {
                     if (!this.db) {
@@ -1403,6 +1461,7 @@
         let activeReportId = null;
         let engineHalted = false;
         let isEngineRunning = false;
+        let isPinModeActive = false;
         let googleMapsLoaded = false;
         let map = null;
         let selectedRecord = null;
@@ -1638,24 +1697,21 @@
                 }
                 
                 // Draw Target Center (Bottleneck)
-                const showRadius = document.getElementById('chk-show-radius') && document.getElementById('chk-show-radius').checked;
-                if (showRadius) {
-                    // Pulsing glow ring
-                    this.ctx.strokeStyle = `rgba(239, 68, 68, ${1.0 - this.pulseRing})`;
-                    this.ctx.lineWidth = 2;
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.center.x, this.center.y, 10 + this.pulseRing * 15, 0, 2 * Math.PI);
-                    this.ctx.stroke();
-                    
-                    // Solid center pin
-                    this.ctx.fillStyle = '#ef4444';
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.center.x, this.center.y, 6, 0, 2 * Math.PI);
-                    this.ctx.fill();
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.lineWidth = 1.5;
-                    this.ctx.stroke();
-                }
+                // Pulsing glow ring
+                this.ctx.strokeStyle = `rgba(239, 68, 68, ${1.0 - this.pulseRing})`;
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(this.center.x, this.center.y, 10 + this.pulseRing * 15, 0, 2 * Math.PI);
+                this.ctx.stroke();
+                
+                // Solid center pin
+                this.ctx.fillStyle = '#ef4444';
+                this.ctx.beginPath();
+                this.ctx.arc(this.center.x, this.center.y, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.stroke();
             }
             
             startAnimation() {
@@ -1879,14 +1935,26 @@
 
         // Load API Key and Target Address from localStorage
         window.addEventListener('DOMContentLoaded', async () => {
+            // Toggle Saved Reports Drawer (Right side)
+            function updateSidebarToggleUI(isCollapsed) {
+                const headerBtn = document.getElementById('btn-toggle-sidebar-header');
+                const sidebar = document.querySelector('aside.glass-card');
+                if (headerBtn && sidebar) {
+                    if (isCollapsed) {
+                        sidebar.classList.add('collapsed');
+                        headerBtn.style.display = 'flex';
+                    } else {
+                        sidebar.classList.remove('collapsed');
+                        headerBtn.style.display = 'none';
+                    }
+                }
+            }
+
             // Restore control panel collapse state
             try {
-                const sidebarCollapsed = localStorage.getItem('sidebar_collapsed');
-                if (sidebarCollapsed === 'true') {
-                    const sidebar = document.querySelector('aside.glass-card');
-                    sidebar.classList.add('collapsed');
-                    document.getElementById('toggle-sidebar-icon').innerText = '▶';
-                    
+                const sidebarCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+                updateSidebarToggleUI(sidebarCollapsed);
+                if (sidebarCollapsed) {
                     // Invalidate sizes after a brief delay to allow DOM layout to settle
                     setTimeout(() => {
                         const isSandbox = document.getElementById('sandbox-checkbox').checked;
@@ -1906,57 +1974,13 @@
                 }
             } catch (e) {}
 
-
             const savedKey = localStorage.getItem('gmaps_api_key');
             if (savedKey) {
                 document.getElementById('api-key').value = savedKey;
             }
             
-            const savedAddress = localStorage.getItem('target_address');
-            if (savedAddress) {
-                document.getElementById('target-address').value = savedAddress;
-                // update street token
-                const token = extractStreetToken(savedAddress);
-                document.getElementById('street-token').value = token;
-            }
-            
-            const savedCoords = localStorage.getItem('baseline_coords');
-            if (savedCoords) {
-                try {
-                    baselineCoords = JSON.parse(savedCoords);
-                } catch (e) {}
-            }
-            
-            // Load saved settings from localStorage
+            // Load saved settings from localStorage (only global/system ones)
             try {
-                const savedRadiusStart = localStorage.getItem('radius_start');
-                if (savedRadiusStart) {
-                    let val = parseFloat(savedRadiusStart);
-                    if (val === 310 || val === 300) {
-                        val = 200;
-                        localStorage.setItem('radius_start', '200');
-                    }
-                    document.getElementById('radius-start').value = val;
-                }
-                
-                const savedRadiusMultiplier = localStorage.getItem('radius_multiplier');
-                if (savedRadiusMultiplier) document.getElementById('radius-multiplier').value = savedRadiusMultiplier;
-                
-                const savedRadiusCircles = localStorage.getItem('radius_circles');
-                if (savedRadiusCircles) document.getElementById('radius-circles').value = savedRadiusCircles;
-                
-                const savedSymmetryPoints = localStorage.getItem('symmetry_points');
-                if (savedSymmetryPoints) document.getElementById('symmetry-points').value = savedSymmetryPoints;
-                
-                const savedMaxPointsLimit = localStorage.getItem('max_points_limit');
-                if (savedMaxPointsLimit) document.getElementById('max-points-limit').value = savedMaxPointsLimit;
-                
-                const savedProximityThreshold = localStorage.getItem('proximity_threshold');
-                if (savedProximityThreshold) document.getElementById('proximity-threshold').value = savedProximityThreshold;
-                
-                const savedStreetToken = localStorage.getItem('street_token');
-                if (savedStreetToken) document.getElementById('street-token').value = savedStreetToken;
-                
                 const savedShowRadius = localStorage.getItem('show_radius');
                 if (savedShowRadius !== null) document.getElementById('chk-show-radius').checked = (savedShowRadius === 'true');
                 
@@ -1968,61 +1992,14 @@
                 
                 const savedSandboxMode = localStorage.getItem('sandbox_mode');
                 if (savedSandboxMode !== null) document.getElementById('sandbox-checkbox').checked = (savedSandboxMode === 'true');
-                
-                const savedTimeBlocksData = localStorage.getItem('time_blocks_data');
-                if (savedTimeBlocksData) {
-                    const hoursData = JSON.parse(savedTimeBlocksData);
-                    const grid = document.querySelector('.checkbox-grid');
-                    grid.innerHTML = ''; // Clear default ones
-                    
-                    hoursData.forEach(item => {
-                        const label = document.createElement('label');
-                        label.className = 'checkbox-item';
-                        let suffix = "";
-                        if (item.value === "08:00") suffix = " (Morning)";
-                        else if (item.value === "12:00") suffix = " (Midday)";
-                        else if (item.value === "17:00") suffix = " (Evening)";
-                        else if (item.value === "20:00") suffix = " (Night)";
-                        
-                        label.innerHTML = `<input type="checkbox" name="time-block" value="${item.value}" ${item.checked ? 'checked' : ''}> ${item.value}${suffix}`;
-                        grid.appendChild(label);
-                    });
-                }
             } catch (err) {
-                console.warn("Failed to load settings from localStorage:", err);
+                console.warn("Failed to load global settings from localStorage:", err);
             }
             
             // Setup Sandbox map by default (instantiate before database to avoid blocking errors)
             try {
                 sandboxMap = new SandboxMapCanvas('sandbox-map');
                 updateMapModeView();
-                
-                // Geocode initial/saved address to center the map on startup
-                const initialAddress = document.getElementById('target-address').value.trim();
-                if (initialAddress) {
-                    const isSandbox = document.getElementById('sandbox-checkbox').checked;
-                    if (isSandbox) {
-                        const savedCoords = localStorage.getItem('baseline_coords');
-                        if (savedCoords) {
-                            try {
-                                baselineCoords = JSON.parse(savedCoords);
-                                if (typeof L !== 'undefined' && leafletMap) {
-                                    leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
-                                }
-                                updateMapVisualsFromSettings();
-                            } catch (e) {}
-                        } else {
-                            geocodeAddressSandbox(initialAddress).then(coords => {
-                                baselineCoords = coords;
-                                saveTargetAddressAndCoords(initialAddress, coords);
-                                if (typeof L !== 'undefined' && leafletMap) {
-                                    leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
-                                }
-                                updateMapVisualsFromSettings();
-                            }).catch(err => console.warn("Initial startup geocoding failed:", err));
-                        }
-                    }
-                }
             } catch (err) {
                 console.error("Failed to initialize Sandbox Map:", err);
             }
@@ -2031,11 +2008,28 @@
             try {
                 await db.open();
                 await migrateLegacyLogs();
-                await refreshUIFromDatabase();
+                
+                const savedActiveReportId = localStorage.getItem('active_report_id');
+                if (savedActiveReportId) {
+                    let activeId = savedActiveReportId;
+                    if (!isNaN(activeId)) {
+                        activeId = Number(activeId);
+                    }
+                    const reports = await db.getAllReports();
+                    const report = reports.find(r => r.id === activeId);
+                    if (report) {
+                        await loadReportById(activeId);
+                    } else {
+                        localStorage.removeItem('active_report_id');
+                        startNewReport(true);
+                    }
+                } else {
+                    startNewReport(true);
+                }
             } catch (err) {
                 console.warn("IndexedDB not available (private browsing?). Falling back to in-memory storage.", err);
                 setupInMemoryDatabaseFallback();
-                await refreshUIFromDatabase();
+                startNewReport(true);
             }
 
             // Real-time calculation listeners for run estimates & map reflection
@@ -2121,12 +2115,12 @@
                 saveSettingsToLocalStorage();
             });
 
-            document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+            const toggleSidebar = () => {
                 const sidebar = document.querySelector('aside.glass-card');
-                const isCollapsed = sidebar.classList.toggle('collapsed');
+                const isCollapsed = !sidebar.classList.contains('collapsed');
                 
-                // Update icon and persist state
-                document.getElementById('toggle-sidebar-icon').innerText = isCollapsed ? '▶' : '◀';
+                updateSidebarToggleUI(isCollapsed);
+                
                 try {
                     localStorage.setItem('sidebar_collapsed', isCollapsed ? 'true' : 'false');
                 } catch (e) {}
@@ -2147,11 +2141,52 @@
                         }
                     }
                 }, 350);
-            });
+            };
+
+            document.getElementById('btn-toggle-sidebar-header').addEventListener('click', toggleSidebar);
+            document.getElementById('btn-toggle-sidebar-sidebar').addEventListener('click', toggleSidebar);
 
             document.getElementById('btn-close-details').addEventListener('click', () => {
                 setDetailsCardVisible(false);
             });
+
+            // Toggle Map Settings Popup (Modal)
+            function openMapSettings() {
+                const backdrop = document.getElementById('map-settings-backdrop');
+                const popup = document.getElementById('map-settings-popup');
+                if (backdrop && popup) {
+                    backdrop.style.display = 'block';
+                    popup.style.display = 'block';
+                    backdrop.offsetHeight; // Force reflow
+                    
+                    backdrop.style.opacity = '1';
+                    popup.style.opacity = '1';
+                    popup.style.transform = 'translate(-50%, -50%) scale(1)';
+                }
+            }
+
+            function closeMapSettings() {
+                const backdrop = document.getElementById('map-settings-backdrop');
+                const popup = document.getElementById('map-settings-popup');
+                if (backdrop && popup) {
+                    backdrop.style.opacity = '0';
+                    popup.style.opacity = '0';
+                    popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
+                    
+                    setTimeout(() => {
+                        if (popup.style.opacity === '0') {
+                            backdrop.style.display = 'none';
+                            popup.style.display = 'none';
+                        }
+                    }, 300);
+                }
+            }
+
+            window.closeMapSettings = closeMapSettings;
+
+            document.getElementById('btn-map-settings').addEventListener('click', openMapSettings);
+            document.getElementById('btn-close-map-settings').addEventListener('click', closeMapSettings);
+            document.getElementById('map-settings-backdrop').addEventListener('click', closeMapSettings);
 
             // Segmented mode switcher buttons click handlers
             document.getElementById('btn-mode-sandbox').addEventListener('click', () => {
@@ -2160,6 +2195,7 @@
                     cb.checked = true;
                     cb.dispatchEvent(new Event('change'));
                 }
+                setTimeout(closeMapSettings, 300);
             });
             
             document.getElementById('btn-mode-google').addEventListener('click', () => {
@@ -2168,13 +2204,6 @@
                     cb.checked = false;
                     cb.dispatchEvent(new Event('change'));
                 }
-            });
-            
-            // Toggle link for API key collapsible configuration
-            document.getElementById('lnk-toggle-api-key').addEventListener('click', (e) => {
-                e.preventDefault();
-                const panel = document.getElementById('api-key-config-panel');
-                panel.classList.toggle('open');
             });
             
             // Real-time API key status indicator update
@@ -2286,6 +2315,14 @@
                 }
                 return Promise.reject(new Error("Report not found"));
             };
+            db.updateReportParameters = (reportId, parameters) => {
+                const report = memoryReports.find(r => r.id === reportId);
+                if (report) {
+                    report.parameters = parameters;
+                    return Promise.resolve();
+                }
+                return Promise.reject(new Error("Report not found"));
+            };
             db.getAllReports = () => {
                 const sorted = [...memoryReports].sort((a, b) => b.timestamp - a.timestamp);
                 return Promise.resolve(sorted);
@@ -2371,14 +2408,10 @@
             
             if (isSandbox) {
                 if (typeof L !== 'undefined' && leafletMap) {
+                    drawTargetMarkerOnLeafletMap();
                     if (showRadius) {
-                        drawTargetMarkerOnLeafletMap();
                         drawSymmetryPointsOnLeafletMap(allSymmetryPoints);
                     } else {
-                        // Clear them
-                        if (leafletTargetMarker) { leafletTargetMarker.remove(); leafletTargetMarker = null; }
-                        leafletCircles.forEach(c => c.remove());
-                        leafletCircles = [];
                         leafletSymmetryMarkers.forEach(m => m.remove());
                         leafletSymmetryMarkers = [];
                     }
@@ -2394,12 +2427,12 @@
                 }
             } else {
                 if (googleMapsLoaded && map) {
+                    drawTargetMarkerOnGoogleMap();
                     if (showRadius) {
-                        drawTargetMarkerOnGoogleMap();
                         drawSymmetryPointsOnGoogleMap(allSymmetryPoints);
                     } else {
-                        // Clear them
-                        clearGoogleMapOverlays();
+                        googleSymmetryMarkers.forEach(m => m.setMap(null));
+                        googleSymmetryMarkers = [];
                     }
                 }
             }
@@ -2429,6 +2462,40 @@
                     subdomains: 'abcd',
                     maxZoom: 20
                 }).addTo(leafletMap);
+
+                // Add map click listener to place/select target location pin
+                leafletMap.on('click', async (e) => {
+                    if (!isPinModeActive) return;
+                    
+                    if (document.getElementById('target-address').disabled) {
+                        togglePinMode();
+                        return; // Lock editing if report is active
+                    }
+                    
+                    togglePinMode();
+                    
+                    const lat = e.latlng.lat;
+                    const lng = e.latlng.lng;
+                    baselineCoords = { lat, lng };
+                    
+                    const tempAddress = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                    document.getElementById('target-address').value = tempAddress;
+                    document.getElementById('street-token').value = extractStreetToken(tempAddress);
+                    
+                    updateMapVisualsFromSettings();
+                    updateRunEstimates();
+                    
+                    try {
+                        const address = await reverseGeocodeSandbox(lat, lng);
+                        document.getElementById('target-address').value = address;
+                        document.getElementById('street-token').value = extractStreetToken(address);
+                        saveTargetAddressAndCoords(address, baselineCoords);
+                        saveSettingsToLocalStorage();
+                        updateMapVisualsFromSettings();
+                    } catch (err) {
+                        console.error("Leaflet map click geocoding failed:", err);
+                    }
+                });
                 
                 // Persist zoom changes
                 leafletMap.on('zoomend', () => {
@@ -2460,31 +2527,36 @@
                 fillColor: '#ef4444',
                 color: '#ffffff',
                 weight: 2,
-                fillOpacity: 1.0
+                fillOpacity: 1.0,
+                interactive: false
             }).addTo(leafletMap).bindPopup("Target Bottleneck Area");
             
-            // Draw concentric circle bands representing exponential tiers
-            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
-            const multiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
-            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
-            
-            let radius = radiusStart;
-            const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
-            let colorIdx = 0;
-            
-            for (let i = 0; i < circlesCount; i++) {
-                const circle = L.circle([baselineCoords.lat, baselineCoords.lng], {
-                    radius: radius * 1000, // Convert km to meters
-                    color: colors[colorIdx % colors.length],
-                    weight: 1.5,
-                    opacity: 0.5,
-                    fillColor: colors[colorIdx % colors.length],
-                    fillOpacity: 0.04
-                }).addTo(leafletMap);
+            const showRadius = document.getElementById('chk-show-radius').checked;
+            if (showRadius) {
+                // Draw concentric circle bands representing exponential tiers
+                const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+                const multiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
+                const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
                 
-                leafletCircles.push(circle);
-                colorIdx++;
-                radius *= multiplier;
+                let radius = radiusStart;
+                const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+                let colorIdx = 0;
+                
+                for (let i = 0; i < circlesCount; i++) {
+                    const circle = L.circle([baselineCoords.lat, baselineCoords.lng], {
+                        radius: radius * 1000, // Convert km to meters
+                        color: colors[colorIdx % colors.length],
+                        weight: 1.5,
+                        opacity: 0.5,
+                        fillColor: colors[colorIdx % colors.length],
+                        fillOpacity: 0.04,
+                        interactive: false
+                    }).addTo(leafletMap);
+                    
+                    leafletCircles.push(circle);
+                    colorIdx++;
+                    radius *= multiplier;
+                }
             }
         }
 
@@ -2501,7 +2573,8 @@
                     fillColor: '#6366f1',
                     color: 'rgba(99, 102, 241, 0.4)',
                     weight: 1,
-                    fillOpacity: 0.8
+                    fillOpacity: 0.8,
+                    interactive: false
                 }).addTo(leafletMap);
                 leafletSymmetryMarkers.push(marker);
             });
@@ -2571,28 +2644,16 @@
         function updateModeSwitcherUI(isSandbox) {
             const btnSandbox = document.getElementById('btn-mode-sandbox');
             const btnGoogle = document.getElementById('btn-mode-google');
-            const lnkConfig = document.getElementById('lnk-toggle-api-key');
             const configPanel = document.getElementById('api-key-config-panel');
             
             if (isSandbox) {
                 if (btnSandbox) btnSandbox.classList.add('active');
                 if (btnGoogle) btnGoogle.classList.remove('active');
-                if (lnkConfig) lnkConfig.style.display = 'none';
-                if (configPanel) configPanel.classList.remove('open');
+                if (configPanel) configPanel.style.display = 'none';
             } else {
                 if (btnSandbox) btnSandbox.classList.remove('active');
                 if (btnGoogle) btnGoogle.classList.add('active');
-                if (lnkConfig) lnkConfig.style.display = 'inline-flex';
-                
-                // Update link text based on whether key exists
-                const savedKey = localStorage.getItem('gmaps_api_key') || document.getElementById('api-key').value.trim();
-                if (lnkConfig) {
-                    if (savedKey) {
-                        lnkConfig.innerHTML = '⚙️ Configure Key <span style="color: var(--color-success); margin-left: 2px;">(Set ✅)</span>';
-                    } else {
-                        lnkConfig.innerHTML = '⚙️ Configure Key <span style="color: var(--color-warning); margin-left: 2px;">(Not Configured ⚠️)</span>';
-                    }
-                }
+                if (configPanel) configPanel.style.display = 'flex';
             }
         }
 
@@ -2603,12 +2664,10 @@
             const leafletMapEl = document.getElementById('leaflet-map');
             const sandboxCanvasEl = document.getElementById('sandbox-map');
             const legendSandboxIndicator = document.getElementById('sandbox-legend-indicator');
-            const btnLoadMap = document.getElementById('btn-load-map');
             
             if (isSandbox) {
                 googleMapEl.style.display = 'none';
                 legendSandboxIndicator.style.display = 'flex';
-                btnLoadMap.style.display = 'block';
                 
                 // If Leaflet library is available, use it; otherwise fallback to Canvas
                 if (typeof L !== 'undefined') {
@@ -2636,7 +2695,6 @@
                 leafletMapEl.style.display = 'none';
                 sandboxCanvasEl.style.display = 'none';
                 legendSandboxIndicator.style.display = 'none';
-                btnLoadMap.style.display = 'none';
                 if (googleMapsLoaded && map) {
                     google.maps.event.trigger(map, 'resize');
                     // Draw current states on Google map
@@ -2672,6 +2730,9 @@
                     
                     document.getElementById('btn-load-map').innerText = 'API Loaded ✅';
                     setEngineStatus('active', 'Google Maps API Loaded');
+                    if (typeof closeMapSettings === 'function') {
+                        setTimeout(closeMapSettings, 1000);
+                    }
                 } catch (err) {
                     console.error(err);
                     alert('Failed to load Google Maps API. Checking your console logs. Reverting to Sandbox Mode.');
@@ -2709,6 +2770,9 @@
                 
                 document.getElementById('btn-load-map').innerText = 'API Loaded ✅';
                 setEngineStatus('active', 'Google Maps API Loaded');
+                if (typeof closeMapSettings === 'function') {
+                    setTimeout(closeMapSettings, 1000);
+                }
             } catch (err) {
                 console.error(err);
                 alert('Failed to load Google Maps API. Checking your console logs. Reverting to Sandbox Mode.');
@@ -2764,6 +2828,39 @@
             
             map = new google.maps.Map(document.getElementById('google-map'), mapOptions);
             
+            // Add map click listener to place/select target location pin
+            map.addListener('click', async (e) => {
+                if (!isPinModeActive) return;
+                
+                if (document.getElementById('target-address').disabled) {
+                    togglePinMode();
+                    return; // Lock editing if report is active
+                }
+                
+                togglePinMode();
+                
+                const latLng = e.latLng;
+                baselineCoords = { lat: latLng.lat(), lng: latLng.lng() };
+                
+                const tempAddress = `${baselineCoords.lat.toFixed(6)}, ${baselineCoords.lng.toFixed(6)}`;
+                document.getElementById('target-address').value = tempAddress;
+                document.getElementById('street-token').value = extractStreetToken(tempAddress);
+                
+                updateMapVisualsFromSettings();
+                updateRunEstimates();
+                
+                try {
+                    const address = await reverseGeocodeGoogle(latLng);
+                    document.getElementById('target-address').value = address;
+                    document.getElementById('street-token').value = extractStreetToken(address);
+                    saveTargetAddressAndCoords(address, baselineCoords);
+                    saveSettingsToLocalStorage();
+                    updateMapVisualsFromSettings();
+                } catch (err) {
+                    console.error("Google maps click geocoding failed:", err);
+                }
+            });
+            
             // Persist zoom changes
             map.addListener('zoom_changed', () => {
                 try {
@@ -2801,6 +2898,7 @@
             });
             
             updateMapVisualsFromSettings();
+            drawRoutesOnMap();
         }
 
         function drawTargetMarkerOnGoogleMap() {
@@ -2812,6 +2910,7 @@
                 position: baselineCoords,
                 map: map,
                 title: "Target Bottleneck Area",
+                clickable: false,
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: 7,
@@ -2823,30 +2922,34 @@
             });
             activeOverlays.push(targetMarker);
             
-            // Concentric circle overlays
-            const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
-            const multiplier = parseFloat(document.getElementById('radius-multiplier').value);
-            const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
-            
-            let radius = radiusStart;
-            const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
-            let colorIdx = 0;
-            
-            for (let i = 0; i < circlesCount; i++) {
-                const circle = new google.maps.Circle({
-                    strokeColor: colors[colorIdx % colors.length],
-                    strokeOpacity: 0.4,
-                    strokeWeight: 1,
-                    fillColor: colors[colorIdx % colors.length],
-                    fillOpacity: 0.03,
-                    map: map,
-                    center: baselineCoords,
-                    radius: radius * 1000 // Convert km to meters
-                });
+            const showRadius = document.getElementById('chk-show-radius').checked;
+            if (showRadius) {
+                // Concentric circle overlays
+                const radiusStart = (parseFloat(document.getElementById('radius-start').value) || 200.0) / 1000.0;
+                const multiplier = parseFloat(document.getElementById('radius-multiplier').value) || 2.0;
+                const circlesCount = parseInt(document.getElementById('radius-circles').value) || 5;
                 
-                activeOverlays.push(circle);
-                colorIdx++;
-                radius *= multiplier;
+                let radius = radiusStart;
+                const colors = ['#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+                let colorIdx = 0;
+                
+                for (let i = 0; i < circlesCount; i++) {
+                    const circle = new google.maps.Circle({
+                        strokeColor: colors[colorIdx % colors.length],
+                        strokeOpacity: 0.4,
+                        strokeWeight: 1,
+                        fillColor: colors[colorIdx % colors.length],
+                        fillOpacity: 0.03,
+                        map: map,
+                        center: baselineCoords,
+                        radius: radius * 1000, // Convert km to meters
+                        clickable: false
+                    });
+                    
+                    activeOverlays.push(circle);
+                    colorIdx++;
+                    radius *= multiplier;
+                }
             }
         }
 
@@ -2873,6 +2976,7 @@
                     position: pt,
                     map: map,
                     title: `Symmetry Point: ${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}`,
+                    clickable: false,
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
                         scale: 4,
@@ -2908,12 +3012,13 @@
         }
 
         let toastTimeoutId = null;
-        function showRunMessageToast(message, type = 'success') {
+        function showRunMessageToast(message, type = 'success', persist = false) {
             const toast = document.getElementById('run-message-toast');
             if (!toast) return;
             
             if (toastTimeoutId) {
                 clearTimeout(toastTimeoutId);
+                toastTimeoutId = null;
             }
             
             toast.innerText = message;
@@ -2930,10 +3035,12 @@
             toast.style.opacity = '1';
             toast.style.transform = 'translateY(0)';
             
-            toastTimeoutId = setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-5px)';
-            }, 3000);
+            if (!persist) {
+                toastTimeoutId = setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-5px)';
+                }, 3000);
+            }
         }
 
         // Add Custom Hour tag
@@ -3076,18 +3183,10 @@
                 baselineCoords = { lat: 45.5265, lng: -73.5877 };
             }
 
-            // Create a new report record in DB
-            const timestamp = Date.now();
-            const dateObj = new Date(timestamp);
-            const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            const dateStr = dateObj.toLocaleDateString();
-            const defaultName = `${streetToken} - ${hours.length} blocks (${timeStr} ${dateStr})`;
-            
-            try {
-                reportId = await db.addReport({
-                    name: defaultName,
-                    timestamp: timestamp,
-                    parameters: {
+            if (activeReportId !== null) {
+                reportId = activeReportId;
+                try {
+                    const params = {
                         targetAddress: address,
                         baselineCoords: baselineCoords,
                         radiusStart: parseFloat(document.getElementById('radius-start').value),
@@ -3097,16 +3196,47 @@
                         proximityThreshold: proximityThreshold,
                         streetToken: streetToken,
                         selectedHours: hours
-                    }
-                });
-                activeReportId = reportId;
+                    };
+                    await db.updateReportParameters(activeReportId, params);
+                } catch (err) {
+                    console.error("Failed to update report parameters in database:", err);
+                }
+            } else {
+                // Create a new report record in DB
+                const timestamp = Date.now();
+                const dateObj = new Date(timestamp);
+                const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const dateStr = dateObj.toLocaleDateString();
+                const defaultName = `${streetToken} - ${hours.length} blocks (${timeStr} ${dateStr})`;
                 
-                // Show in badge
-                document.getElementById('active-report-badge').style.display = 'flex';
-                document.getElementById('active-report-name').innerText = defaultName;
-                document.getElementById('active-report-name').title = defaultName;
-            } catch (err) {
-                console.error("Failed to create search report in database:", err);
+                try {
+                    reportId = await db.addReport({
+                        name: defaultName,
+                        timestamp: timestamp,
+                        parameters: {
+                            targetAddress: address,
+                            baselineCoords: baselineCoords,
+                            radiusStart: parseFloat(document.getElementById('radius-start').value),
+                            radiusMultiplier: radiusMultiplier,
+                            radiusCircles: circlesCount,
+                            symmetryPoints: symmetryPointsCount,
+                            proximityThreshold: proximityThreshold,
+                            streetToken: streetToken,
+                            selectedHours: hours
+                        }
+                    });
+                    activeReportId = reportId;
+                    try {
+                        localStorage.setItem('active_report_id', reportId);
+                    } catch (e) {}
+                    
+                    // Show in badge
+                    document.getElementById('active-report-badge').style.display = 'flex';
+                    document.getElementById('active-report-name').innerText = defaultName;
+                    document.getElementById('active-report-name').title = defaultName;
+                } catch (err) {
+                    console.error("Failed to create search report in database:", err);
+                }
             }
             
             // 2. Generate Radius tiers
@@ -3389,6 +3519,83 @@
             }
             // Default fallback coords
             return { lat: 45.5265, lng: -73.5877 };
+        }
+
+        // Reverse geocodes coordinates to address string using Google Maps Geocoder
+        function reverseGeocodeGoogle(latLng) {
+            const geocoder = new google.maps.Geocoder();
+            return new Promise((resolve, reject) => {
+                geocoder.geocode({ location: latLng }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        resolve(results[0].formatted_address);
+                    } else {
+                        reject(new Error('Reverse geocoding failed: ' + status));
+                    }
+                });
+            });
+        }
+
+        // Reverse geocodes coordinates to address string using OSM Nominatim API in sandbox mode
+        async function reverseGeocodeSandbox(lat, lng) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2500);
+            
+            try {
+                // If it is extremely close to the default Montreal coords, return immediately offline
+                const dLat = Math.abs(lat - 45.5265);
+                const dLng = Math.abs(lng - -73.5877);
+                if (dLat < 0.0001 && dLng < 0.0001) {
+                    clearTimeout(timeoutId);
+                    return "Boulevard Saint-Joseph & Rue de Lanaudière, Montréal, QC";
+                }
+                
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+                    {
+                        signal: controller.signal,
+                        headers: {
+                            'Accept-Language': 'en',
+                            'User-Agent': 'AntigravityTrafficODMappingTool/1.0'
+                        }
+                    }
+                );
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error("HTTP error " + response.status);
+                const data = await response.json();
+                return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            } catch (err) {
+                clearTimeout(timeoutId);
+                console.warn("Sandbox reverse geocoding failed/timed out, using coordinates:", err);
+                return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
+        }
+
+        // Toggles interactive pin-selection mode on the map
+        function togglePinMode() {
+            if (document.getElementById('target-address').disabled) return;
+            
+            isPinModeActive = !isPinModeActive;
+            const pinBtn = document.getElementById('btn-pin-mode');
+            const mapElements = ['google-map', 'leaflet-map', 'sandbox-map'];
+            
+            if (isPinModeActive) {
+                mapElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('pin-cursor');
+                });
+                pinBtn.style.background = 'rgba(6, 182, 212, 0.25)';
+                pinBtn.style.border = '1px solid var(--accent-cyan)';
+                pinBtn.style.color = 'var(--accent-cyan)';
+                showRunMessageToast('Click on the map to set location', 'success');
+            } else {
+                mapElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('pin-cursor');
+                });
+                pinBtn.style.background = '';
+                pinBtn.style.border = '';
+                pinBtn.style.color = '';
+            }
         }
 
         // Fetches driving route directions
@@ -3726,6 +3933,50 @@
 
         // --- FILTERING & INDEXEDDB DATA BINDING ---
 
+        function openReportsDrawer() {
+            const backdrop = document.getElementById('reports-drawer-backdrop');
+            const drawer = document.getElementById('reports-drawer');
+            if (backdrop && drawer) {
+                backdrop.style.display = 'block';
+                backdrop.offsetHeight;
+                backdrop.classList.add('open');
+                drawer.classList.add('open');
+            }
+        }
+
+        function closeReportsDrawer() {
+            const backdrop = document.getElementById('reports-drawer-backdrop');
+            const drawer = document.getElementById('reports-drawer');
+            if (backdrop && drawer) {
+                backdrop.classList.remove('open');
+                drawer.classList.remove('open');
+                setTimeout(() => {
+                    if (!drawer.classList.contains('open')) {
+                        backdrop.style.display = 'none';
+                    }
+                }, 300);
+            }
+        }
+
+        function disableReportFields() {
+            document.getElementById('target-address').disabled = true;
+            document.getElementById('proximity-threshold').disabled = true;
+            document.getElementById('street-token').disabled = true;
+            document.getElementById('btn-pin-mode').disabled = true;
+            
+            // Turn off Pin Mode if active
+            if (isPinModeActive) {
+                togglePinMode();
+            }
+        }
+
+        function enableReportFields() {
+            document.getElementById('target-address').disabled = false;
+            document.getElementById('proximity-threshold').disabled = false;
+            document.getElementById('street-token').disabled = false;
+            document.getElementById('btn-pin-mode').disabled = false;
+        }
+
         async function loadReportById(reportId) {
             try {
                 const reports = await db.getAllReports();
@@ -3758,15 +4009,27 @@
                 });
                 
                 activeReportId = report.id;
+                try {
+                    localStorage.setItem('active_report_id', report.id);
+                } catch (e) {}
+                disableReportFields();
                 
                 document.getElementById('active-report-badge').style.display = 'flex';
                 document.getElementById('active-report-name').innerText = report.name;
                 document.getElementById('active-report-name').title = report.name;
                 
+                closeReportsDrawer();
+                
                 const isSandbox = document.getElementById('sandbox-checkbox').checked;
                 if (isSandbox) {
                     if (typeof L !== 'undefined' && leafletMap) {
                         leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
+                        setTimeout(() => {
+                            if (leafletMap) {
+                                leafletMap.invalidateSize();
+                                drawRoutesOnMap();
+                            }
+                        }, 100);
                     }
                 } else {
                     if (googleMapsLoaded && map) {
@@ -3779,7 +4042,7 @@
                 
                 await refreshUIFromDatabase();
                 
-                showRunMessageToast(`Loaded report: ${report.name}`, 'success');
+                showRunMessageToast(`Loaded report: ${report.name}`, 'success', true);
             } catch (err) {
                 console.error("Failed to load report:", err);
                 alert("Failed to load report: " + err.message);
@@ -3928,7 +4191,18 @@
 
         async function exitReportView() {
             activeReportId = null;
+            try {
+                localStorage.removeItem('active_report_id');
+            } catch (e) {}
             document.getElementById('active-report-badge').style.display = 'none';
+            enableReportFields();
+            
+            const toast = document.getElementById('run-message-toast');
+            if (toast) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-5px)';
+            }
+            
             await refreshUIFromDatabase();
         }
 
@@ -4084,10 +4358,21 @@
         // Reactive filter dropdown listeners added in DOMContentLoaded
  
         // Start a new report from scratch
-        function startNewReport() {
+        function startNewReport(silent = false) {
             // Reset active report selection
             activeReportId = null;
+            try {
+                localStorage.removeItem('active_report_id');
+            } catch (e) {}
             document.getElementById('active-report-badge').style.display = 'none';
+            enableReportFields();
+            
+            // Clear toast message
+            const toast = document.getElementById('run-message-toast');
+            if (toast) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-5px)';
+            }
             
             // Reset control panel inputs to default values
             document.getElementById('target-address').value = 'Boulevard Saint-Joseph & Rue de Lanaudière, Montréal, QC';
@@ -4148,10 +4433,13 @@
             // Refresh saved reports list UI
             refreshSavedReportsUI();
             
-            showRunMessageToast('Ready for a new search', 'success');
+            if (!silent) {
+                showRunMessageToast('Ready for a new search', 'success');
+            }
         }
 
         document.getElementById('btn-new-report').addEventListener('click', startNewReport);
+        document.getElementById('btn-pin-mode').addEventListener('click', togglePinMode);
 
         function setDetailsCardVisible(visible) {
             const detailsCard = document.getElementById('details-card');
@@ -4279,7 +4567,8 @@
                 color: '#ffffff',
                 weight: isSelected ? 1.5 : 1.0,
                 fillOpacity: isSelected ? 1.0 : 0.6,
-                opacity: isSelected ? 1.0 : 0.6
+                opacity: isSelected ? 1.0 : 0.6,
+                interactive: false
             }).addTo(leafletMap).bindPopup(isSelected ? "Route Start" : `Route ${rec.id} Start`);
             leafletRouteStartMarkers.push(startM);
             
@@ -4290,7 +4579,8 @@
                 color: '#ffffff',
                 weight: isSelected ? 1.5 : 1.0,
                 fillOpacity: isSelected ? 1.0 : 0.6,
-                opacity: isSelected ? 1.0 : 0.6
+                opacity: isSelected ? 1.0 : 0.6,
+                interactive: false
             }).addTo(leafletMap).bindPopup(isSelected ? "Route End" : `Route ${rec.id} End`);
             leafletRouteEndMarkers.push(endM);
         }
@@ -4305,6 +4595,7 @@
                 position: pathLatLngs[0],
                 map: map,
                 title: isSelected ? "Route Start" : `Route ${rec.id} Start`,
+                clickable: false,
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: isSelected ? 12 : 9, // 1.5 times of 8 : 6
@@ -4321,6 +4612,7 @@
                 position: pathLatLngs[pathLatLngs.length - 1],
                 map: map,
                 title: isSelected ? "Route End" : `Route ${rec.id} End`,
+                clickable: false,
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: isSelected ? 10.5 : 6.75, // 1.5 times of 7 : 4.5
@@ -4367,7 +4659,8 @@
                         const poly = L.polyline(latlngs, {
                             color: isSelected ? '#06b6d4' : '#fbbf24', // yellow instead of blue
                             weight: isSelected ? 6 : 3,
-                            opacity: isSelected ? 1.0 : 0.35
+                            opacity: isSelected ? 1.0 : 0.35,
+                            interactive: false
                         }).addTo(leafletMap);
                         
                         leafletRoutePolylines.push(poly);
@@ -4384,7 +4677,8 @@
                         const poly = L.polyline(latlngs, {
                             color: '#fbbf24', // yellow instead of blue
                             weight: 5,
-                            opacity: 0.85
+                            opacity: 0.85,
+                            interactive: false
                         }).addTo(leafletMap);
                         
                         leafletRoutePolylines.push(poly);
@@ -4406,7 +4700,8 @@
                         const sampledPoly = L.polyline([[startPt.lat, startPt.lng], [endPt.lat, endPt.lng]], {
                             color: '#10b981', // green
                             weight: isSelected ? 3 : 2,
-                            opacity: isSelected ? 0.9 : 0.5
+                            opacity: isSelected ? 0.9 : 0.5,
+                            interactive: false
                         }).addTo(leafletMap);
                         leafletSampledPolylines.push(sampledPoly);
                     });
@@ -4440,7 +4735,8 @@
                             strokeColor: isSelected ? '#06b6d4' : '#fbbf24', // yellow instead of blue
                             strokeOpacity: isSelected ? 1.0 : 0.35,
                             strokeWeight: isSelected ? 6 : 3,
-                            map: map
+                            map: map,
+                            clickable: false
                         });
                         currentGoogleRoutePolylines.push(poly);
                         if (isSelected) {
@@ -4460,7 +4756,8 @@
                             strokeColor: '#fbbf24', // yellow instead of blue
                             strokeOpacity: 0.85,
                             strokeWeight: 5,
-                            map: map
+                            map: map,
+                            clickable: false
                         });
                         currentGoogleRoutePolylines.push(poly);
                         currentGoogleSelectedRoutePolyline = poly;
@@ -4484,7 +4781,8 @@
                             strokeColor: '#10b981', // green
                             strokeOpacity: isSelected ? 0.9 : 0.5,
                             strokeWeight: isSelected ? 3 : 2,
-                            map: map
+                            map: map,
+                            clickable: false
                         });
                         currentGoogleSampledPolylines.push(sampledPoly);
                     });
@@ -4588,19 +4886,7 @@
 
     </script>
     
-    <!-- Saved Reports Slide-out Drawer (Right) -->
-    <div id="reports-drawer-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 998; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
-    
-    <div id="reports-drawer" class="glass-card" style="position: fixed; top: 0; right: 0; width: 360px; height: 100vh; z-index: 999; border-radius: 0; border-left: 1px solid var(--border-color); border-top: none; border-bottom: none; border-right: none; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -10px 0 30px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
-        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
-            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Saved Reports</h2>
-            <button id="btn-close-reports" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Close Saved Reports">✕</button>
-        </div>
-        <div class="card-body" style="padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;">
-            <div id="saved-reports-list" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
-            <div id="saved-reports-placeholder" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 20px 0;">No saved reports.</div>
-        </div>
-    </div>
+
 
 </body>
 </html>
