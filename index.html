@@ -442,20 +442,12 @@
             color: var(--accent-cyan);
         }
 
-        /* Saved Reports Styles */
-        .reports-panel {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
-            border-radius: var(--radius-md);
-            border: 1px solid transparent;
+        /* Reports Drawer Styles */
+        #reports-drawer.open {
+            transform: translateX(0) !important;
         }
-        .reports-panel.open {
-            max-height: 250px;
-            overflow-y: auto;
-            border-color: var(--border-color);
-            background: rgba(15, 23, 42, 0.4);
-            padding: 8px;
+        #reports-drawer-backdrop.open {
+            opacity: 1 !important;
         }
         .btn-report-action {
             opacity: 0.6;
@@ -865,6 +857,9 @@
                 <div id="status-indicator" class="status-dot"></div>
                 <span id="status-text">Engine Idle</span>
             </div>
+            <button class="btn btn-secondary" id="btn-open-reports" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px;" type="button">
+                📂 Reports (<span id="saved-reports-count">0</span>)
+            </button>
         </div>
     </header>
 
@@ -1009,21 +1004,7 @@
                     </div>
                 </div>
 
-                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 12px 0;">
-
-                <!-- Saved Reports Section -->
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 4px 0;" id="btn-toggle-reports">
-                        <label style="margin: 0; font-weight: 700; color: var(--accent-cyan); cursor: pointer; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Saved Reports (<span id="saved-reports-count">0</span>)</label>
-                        <span id="reports-toggle-arrow" style="font-size: 0.75rem; color: var(--text-muted); transition: transform 0.2s;">▼</span>
-                    </div>
-                    <div id="saved-reports-container" class="reports-panel open" style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
-                        <div id="saved-reports-list" style="display: flex; flex-direction: column; gap: 6px; width: 100%;"></div>
-                        <div id="saved-reports-placeholder" style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 10px 0;">No saved reports.</div>
-                    </div>
-                </div>
-
-                <hr style="border: 0; border-top: 1px solid var(--border-color);">
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin-bottom: 12px;">
 
                 <!-- Execution Actions -->
                 <div class="inline-group" style="margin-top: auto;">
@@ -2207,17 +2188,36 @@
             // Draw initial map elements from current default settings after a brief initialization wait
             setTimeout(updateMapVisualsFromSettings, 400);
 
-            // Toggle Saved Reports panel
-            document.getElementById('btn-toggle-reports').addEventListener('click', () => {
-                const reportsContainer = document.getElementById('saved-reports-container');
-                const toggleArrow = document.getElementById('reports-toggle-arrow');
-                const isOpen = reportsContainer.classList.toggle('open');
-                if (isOpen) {
-                    toggleArrow.style.transform = 'rotate(0deg)';
-                } else {
-                    toggleArrow.style.transform = 'rotate(-90deg)';
-                }
-            });
+            // Toggle Saved Reports Drawer (Right side)
+            function openReportsDrawer() {
+                const backdrop = document.getElementById('reports-drawer-backdrop');
+                const drawer = document.getElementById('reports-drawer');
+                
+                backdrop.style.display = 'block';
+                // Trigger reflow
+                backdrop.offsetHeight;
+                
+                backdrop.classList.add('open');
+                drawer.classList.add('open');
+            }
+
+            function closeReportsDrawer() {
+                const backdrop = document.getElementById('reports-drawer-backdrop');
+                const drawer = document.getElementById('reports-drawer');
+                
+                backdrop.classList.remove('open');
+                drawer.classList.remove('open');
+                
+                setTimeout(() => {
+                    if (!drawer.classList.contains('open')) {
+                        backdrop.style.display = 'none';
+                    }
+                }, 300);
+            }
+
+            document.getElementById('btn-open-reports').addEventListener('click', openReportsDrawer);
+            document.getElementById('btn-close-reports').addEventListener('click', closeReportsDrawer);
+            document.getElementById('reports-drawer-backdrop').addEventListener('click', closeReportsDrawer);
 
             // Exit report view button
             document.getElementById('btn-exit-report-view').addEventListener('click', (e) => {
@@ -3789,13 +3789,15 @@
         async function deleteReportById(reportId, reportName) {
             if (confirm(`Are you sure you want to delete the report "${reportName}" and all of its routes? This cannot be undone.`)) {
                 try {
-                    if (activeReportId === reportId) {
-                        activeReportId = null;
-                        document.getElementById('active-report-badge').style.display = 'none';
-                    }
+                    const isActive = (activeReportId === reportId);
                     await db.deleteReport(reportId);
                     showRunMessageToast(`Deleted report: ${reportName}`, 'success');
-                    await refreshUIFromDatabase();
+                    
+                    if (isActive) {
+                        startNewReport();
+                    } else {
+                        await refreshUIFromDatabase();
+                    }
                 } catch (err) {
                     console.error("Failed to delete report:", err);
                     alert("Failed to delete report: " + err.message);
@@ -4142,6 +4144,9 @@
             
             // Refresh table view
             applyFiltersAndPopulateTable();
+            
+            // Refresh saved reports list UI
+            refreshSavedReportsUI();
             
             showRunMessageToast('Ready for a new search', 'success');
         }
@@ -4582,5 +4587,20 @@
         });
 
     </script>
+    
+    <!-- Saved Reports Slide-out Drawer (Right) -->
+    <div id="reports-drawer-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 998; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
+    
+    <div id="reports-drawer" class="glass-card" style="position: fixed; top: 0; right: 0; width: 360px; height: 100vh; z-index: 999; border-radius: 0; border-left: 1px solid var(--border-color); border-top: none; border-bottom: none; border-right: none; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -10px 0 30px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Saved Reports</h2>
+            <button id="btn-close-reports" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Close Saved Reports">✕</button>
+        </div>
+        <div class="card-body" style="padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;">
+            <div id="saved-reports-list" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
+            <div id="saved-reports-placeholder" style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 20px 0;">No saved reports.</div>
+        </div>
+    </div>
+
 </body>
 </html>
