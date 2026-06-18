@@ -1034,8 +1034,8 @@
                     <button class="btn btn-secondary" id="btn-export-csv" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;" disabled>
                         💾 Export CSV
                     </button>
-                    <button class="btn btn-danger" id="btn-clear-database" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        🗑️ Clear DB
+                    <button class="btn btn-primary" id="btn-new-report" style="flex: 1; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));">
+                        ➕ New Report
                     </button>
                 </div>
 
@@ -4081,35 +4081,72 @@
  
         // Reactive filter dropdown listeners added in DOMContentLoaded
  
-        // Clear database action
-        document.getElementById('btn-clear-database').addEventListener('click', async () => {
-            if (confirm("Are you sure you want to clear all research logs and saved reports from your local database? This cannot be undone.")) {
-                activeReportId = null;
-                document.getElementById('active-report-badge').style.display = 'none';
-                await db.clearRecords();
-                selectedRecord = null;
-                document.getElementById('details-content').style.display = 'none';
-                document.getElementById('details-placeholder').style.display = 'flex';
-                setDetailsCardVisible(false);
-                
-                // Clear map overlays
-                const isSandbox = document.getElementById('sandbox-checkbox').checked;
-                if (isSandbox) {
-                    if (typeof L !== 'undefined' && leafletMap) {
-                        clearLeafletOverlays();
-                    }
-                    if (sandboxMap) {
-                        sandboxMap.clearSelectedPath();
-                    }
-                    updateMapVisualsFromSettings();
-                } else if (googleMapsLoaded && map) {
-                    clearGoogleRouteOverlays();
-                    updateMapVisualsFromSettings();
+        // Start a new report from scratch
+        function startNewReport() {
+            // Reset active report selection
+            activeReportId = null;
+            document.getElementById('active-report-badge').style.display = 'none';
+            
+            // Reset control panel inputs to default values
+            document.getElementById('target-address').value = 'Boulevard Saint-Joseph & Rue de Lanaudière, Montréal, QC';
+            document.getElementById('proximity-threshold').value = '100';
+            document.getElementById('street-token').value = 'Saint-Joseph';
+            document.getElementById('radius-start').value = '200';
+            document.getElementById('radius-multiplier').value = '2.0';
+            document.getElementById('radius-circles').value = '5';
+            document.getElementById('symmetry-points').value = '8';
+            document.getElementById('max-points-limit').value = '100';
+            
+            // Reset time block checkboxes
+            const checkboxes = document.querySelectorAll('input[name="time-block"]');
+            checkboxes.forEach(cb => {
+                cb.checked = (cb.value === '08:00' || cb.value === '12:00' || cb.value === '17:00');
+            });
+            
+            // Clear custom hour input
+            const customHourInput = document.getElementById('custom-hour');
+            if (customHourInput) customHourInput.value = '';
+            
+            // Save defaults to localStorage so they persist
+            saveSettingsToLocalStorage();
+            saveTargetAddressAndCoords('Boulevard Saint-Joseph & Rue de Lanaudière, Montréal, QC', { lat: 45.5265, lng: -73.5877 });
+            baselineCoords = { lat: 45.5265, lng: -73.5877 };
+            
+            // Clear active records and detail panels
+            activeRecords = [];
+            filteredRecords = [];
+            selectedRecord = null;
+            document.getElementById('details-content').style.display = 'none';
+            document.getElementById('details-placeholder').style.display = 'flex';
+            setDetailsCardVisible(false);
+            
+            // Clear map overlays
+            const isSandbox = document.getElementById('sandbox-checkbox').checked;
+            if (isSandbox) {
+                if (typeof L !== 'undefined' && leafletMap) {
+                    clearLeafletOverlays();
+                    leafletMap.setView([baselineCoords.lat, baselineCoords.lng], leafletMap.getZoom());
                 }
-                
-                await refreshUIFromDatabase();
+                if (sandboxMap) {
+                    sandboxMap.clearSelectedPath();
+                    sandboxMap.clearActiveSearch();
+                }
+            } else if (googleMapsLoaded && map) {
+                clearGoogleRouteOverlays();
+                map.setCenter(baselineCoords);
             }
-        });
+            
+            // Regenerate default map visuals and estimations
+            updateRunEstimates();
+            updateMapVisualsFromSettings();
+            
+            // Refresh table view
+            applyFiltersAndPopulateTable();
+            
+            showRunMessageToast('Ready for a new search', 'success');
+        }
+
+        document.getElementById('btn-new-report').addEventListener('click', startNewReport);
 
         function setDetailsCardVisible(visible) {
             const detailsCard = document.getElementById('details-card');
