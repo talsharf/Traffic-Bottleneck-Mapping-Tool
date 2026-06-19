@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Traffic Origin-Destination (O-D) Mapping Tool v3.0</title>
+    <title>Traffic Bottleneck Mapping Tool</title>
     <!-- Google Fonts: Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -851,22 +851,28 @@
             </button>
             <div class="header-logo">Ω</div>
             <div>
-                <h1>Local Traffic Origin-Destination (O-D) Mapping Tool</h1>
+                <h1>Traffic Bottleneck Mapping Tool</h1>
             </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
+            <div id="active-report-badge" style="display: none; align-items: center; gap: 6px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; color: var(--accent-cyan); height: 32px; box-sizing: border-box; white-space: nowrap;">
+                <span style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; max-width: 300px; white-space: nowrap;" id="active-report-name">Report: </span>
+            </div>
             <div id="run-message-toast" style="font-size: 0.8rem; color: var(--text-primary); background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; border-radius: 20px; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease; transform: translateY(-5px); pointer-events: none; white-space: nowrap;"></div>
             <div class="header-status">
                 <div id="status-indicator" class="status-dot"></div>
                 <span id="status-text">Engine Idle</span>
             </div>
-            <button class="btn btn-primary" id="btn-new-report" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));" type="button">
+            <button class="btn btn-secondary" id="btn-billing-popup" style="padding: 6px 16px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; white-space: nowrap;" type="button">
+                <span>💳 Spent: $<span id="toolbar-spend-amount">0.00</span></span>
+            </button>
+            <button class="btn btn-primary" id="btn-new-report" style="padding: 6px 16px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan)); white-space: nowrap;" type="button">
                 ➕ New Report
             </button>
-            <button class="btn btn-secondary" id="btn-open-reports" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px;" type="button">
+            <button class="btn btn-secondary" id="btn-open-reports" style="padding: 6px 16px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; white-space: nowrap;" type="button">
                 <span>📂 Reports (<span id="saved-reports-count">0</span>)</span>
             </button>
-            <button class="btn btn-secondary" id="btn-map-settings" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px;" type="button">
+            <button class="btn btn-secondary" id="btn-map-settings" style="padding: 6px 16px; font-size: 0.75rem; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; height: 32px; white-space: nowrap;" type="button">
                 ⚙️ Map Engine
             </button>
         </div>
@@ -993,8 +999,11 @@
 
                 <!-- Execution Actions -->
                 <div class="inline-group" style="margin-top: auto;">
-                    <button class="btn btn-primary" id="btn-start-run">Start Run</button>
+                    <button class="btn btn-primary" id="btn-start-run">Calc</button>
                     <button class="btn btn-danger" id="btn-halt-run" disabled>Halt</button>
+                </div>
+                <div id="current-run-cost-estimate" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px; font-weight: 500;">
+                    Estimated Run Cost: $0.00
                 </div>
                 <div style="margin-top: 10px;">
                     <button class="btn btn-secondary" id="btn-export-csv" style="width: 100%; font-size: 0.75rem; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;" disabled>
@@ -1037,10 +1046,6 @@
                     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                         <div style="display: flex; align-items: center; gap: 10px;" id="routes-title-container">
                             <h2>Routes</h2>
-                            <div id="active-report-badge" style="display: none; align-items: center; gap: 6px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; color: var(--accent-cyan);">
-                                <span style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; max-width: 180px; white-space: nowrap;" id="active-report-name">Viewing Report</span>
-                                <button id="btn-exit-report-view" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.75rem; padding: 0 2px; line-height: 1;" title="Exit Report View">✕</button>
-                            </div>
                         </div>
                         <span id="record-count-display" style="display: none;">0 Routes</span>
                     </div>
@@ -1230,6 +1235,60 @@
         </div>
     </div>
 
+    <!-- Billing Popup/Modal -->
+    <div id="billing-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
+    
+    <div id="billing-popup" class="glass-card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 380px; z-index: 1001; display: none; opacity: 0; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+        <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Google API Billing</h2>
+            <button id="btn-close-billing" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px;" title="Close Billing">✕</button>
+        </div>
+        <div class="card-body" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+            <!-- Current Spend details -->
+            <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span style="color: var(--text-secondary);">Current Month Spend:</span>
+                    <span id="billing-total-spend" style="font-weight: 700; color: var(--accent-cyan); font-size: 1rem;">$0.000000</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; border-bottom: 1px dashed var(--border-color); padding-bottom: 6px; margin-bottom: 4px;">
+                    <span style="color: var(--text-secondary);">Days until Reset:</span>
+                    <span id="billing-days-reset" style="font-weight: 600; color: var(--text-primary);">0 days</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span style="color: var(--text-secondary);">map loads ($0.007 each)</span>
+                    <span id="billing-count-map" style="color: var(--text-primary);">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span style="color: var(--text-secondary);">autocomplete searches ($0.00283 each)</span>
+                    <span id="billing-count-autocomplete" style="color: var(--text-primary);">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span style="color: var(--text-secondary);">direction queries ($0.005 each)</span>
+                    <span id="billing-count-directions" style="color: var(--text-primary);">0</span>
+                </div>
+            </div>
+
+            <!-- Safety Budget Configuration -->
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="modal-budget-input" style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block;">Safety Budget Limit (USD)</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="color: var(--text-secondary); font-size: 0.95rem;">$</span>
+                    <input type="number" id="modal-budget-input" min="1" step="1" style="flex: 1; font-size: 0.85rem; padding: 8px 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px;" placeholder="200.00">
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <button class="btn btn-primary" id="btn-save-budget" style="font-size: 0.75rem; padding: 8px; width: 100%; font-weight: 600; background: linear-gradient(135deg, var(--accent-indigo), var(--accent-cyan));" type="button">
+                    Save Budget Settings
+                </button>
+                <button class="btn btn-secondary" id="btn-reset-ledger" style="font-size: 0.75rem; padding: 8px; width: 100%; border: 1px solid #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.05); font-weight: 600;" type="button">
+                    ⚠️ Reset billing ledger
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Application Code -->
     <script>
         // --- INDEXEDDB DATABASE MANAGER ---
@@ -1237,7 +1296,7 @@
             constructor() {
                 this.dbName = 'TrafficResearchDB';
                 this.storeName = 'TrafficResearchLog';
-                this.version = 2;
+                this.version = 3;
                 this.db = null;
             }
 
@@ -1267,6 +1326,12 @@
 
                         if (!db.objectStoreNames.contains('TrafficReports')) {
                             db.createObjectStore('TrafficReports', { keyPath: 'id', autoIncrement: true });
+                        }
+
+                        if (!db.objectStoreNames.contains('billing_ledger')) {
+                            const billingStore = db.createObjectStore('billing_ledger', { keyPath: 'id', autoIncrement: true });
+                            billingStore.createIndex('type', 'type', { unique: false });
+                            billingStore.createIndex('timestamp', 'timestamp', { unique: false });
                         }
                     };
                 });
@@ -1453,6 +1518,58 @@
                     request.onerror = (e) => reject(e.target.error);
                 });
             }
+
+            addBillingRecord(type) {
+                const prices = {
+                    'map': 0.007,
+                    'autocomplete': 0.00283,
+                    'directions': 0.005
+                };
+                const record = {
+                    type: type,
+                    timestamp: new Date().toISOString(),
+                    estimatedCost: prices[type] || 0
+                };
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['billing_ledger'], 'readwrite');
+                    const store = transaction.objectStore('billing_ledger');
+                    const request = store.add(record);
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            getBillingRecords() {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['billing_ledger'], 'readonly');
+                    const store = transaction.objectStore('billing_ledger');
+                    const request = store.getAll();
+                    request.onsuccess = (e) => resolve(e.target.result || []);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            clearBillingLedger() {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) {
+                        reject(new Error("Database not initialized"));
+                        return;
+                    }
+                    const transaction = this.db.transaction(['billing_ledger'], 'readwrite');
+                    const store = transaction.objectStore('billing_ledger');
+                    const request = store.clear();
+                    request.onsuccess = () => resolve();
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
         }
 
         // --- GLOBAL APP STATE ---
@@ -1488,6 +1605,173 @@
         // Coordinates for Montreal default (for Geocoding fallback/sandbox)
         let baselineCoords = { lat: 45.5265, lng: -73.5877 }; 
         let streetToken = "Saint-Joseph";
+
+        // --- API BILLING & SAFETY BUDGET LOGIC ---
+        let safetyBudget = 200.00;
+        let billingBudgetExceeded = false;
+
+        // Load initial budget from localStorage
+        try {
+            const savedBudget = localStorage.getItem('billing_budget');
+            if (savedBudget !== null) {
+                safetyBudget = parseFloat(savedBudget);
+            }
+        } catch (e) {
+            console.error("Failed to load safety budget from localStorage:", e);
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        function getDaysRemainingInMonth() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+            const diffTime = endOfMonth - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        async function recordCost(type) {
+            try {
+                await db.addBillingRecord(type);
+                debouncedUpdateBillingSummary();
+            } catch (err) {
+                console.error("Failed to record cost:", err);
+            }
+        }
+
+        async function updateBillingSummary() {
+            try {
+                const records = await db.getBillingRecords();
+                
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+                
+                let totalCost = 0;
+                let mapCount = 0;
+                let autocompleteCount = 0;
+                let directionsCount = 0;
+                
+                let mapCost = 0;
+                let autocompleteCost = 0;
+                let directionsCost = 0;
+                
+                records.forEach(r => {
+                    const rDate = new Date(r.timestamp);
+                    if (rDate.getFullYear() === currentYear && rDate.getMonth() === currentMonth) {
+                        totalCost += r.estimatedCost;
+                        if (r.type === 'map') {
+                            mapCount++;
+                            mapCost += r.estimatedCost;
+                        } else if (r.type === 'autocomplete') {
+                            autocompleteCount++;
+                            autocompleteCost += r.estimatedCost;
+                        } else if (r.type === 'directions') {
+                            directionsCount++;
+                            directionsCost += r.estimatedCost;
+                        }
+                    }
+                });
+                
+                // Update budget input in modal if not focused
+                const budgetInput = document.getElementById('modal-budget-input');
+                if (budgetInput && !budgetInput.matches(':focus')) {
+                    budgetInput.value = safetyBudget.toFixed(2);
+                }
+                
+                // Update Toolbar button spend display
+                const toolbarSpend = document.getElementById('toolbar-spend-amount');
+                if (toolbarSpend) {
+                    toolbarSpend.innerText = totalCost.toFixed(2);
+                }
+                
+                const daysLeft = getDaysRemainingInMonth();
+                const daysReset = document.getElementById('billing-days-reset');
+                if (daysReset) {
+                    daysReset.innerText = `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
+                }
+                
+                billingBudgetExceeded = totalCost >= safetyBudget;
+                
+                // Update Modal total spend
+                const modalTotalSpend = document.getElementById('billing-total-spend');
+                if (modalTotalSpend) {
+                    modalTotalSpend.innerText = `$${totalCost.toFixed(6)}`;
+                }
+                
+                // Update detailed breakdown labels in popup
+                const labelMap = document.getElementById('billing-count-map');
+                if (labelMap) {
+                    labelMap.innerText = mapCount;
+                }
+                
+                const labelAutocomplete = document.getElementById('billing-count-autocomplete');
+                if (labelAutocomplete) {
+                    labelAutocomplete.innerText = autocompleteCount;
+                }
+                
+                const labelDirections = document.getElementById('billing-count-directions');
+                if (labelDirections) {
+                    labelDirections.innerText = directionsCount;
+                }
+                
+                // Enforce budget limits in directions loop if running
+                if (billingBudgetExceeded && isEngineRunning && !document.getElementById('sandbox-checkbox').checked) {
+                    engineHalted = true;
+                    const toast = document.getElementById('run-message-toast');
+                    if (toast) {
+                        toast.innerText = "Safety budget exceeded! Halting execution.";
+                        toast.style.opacity = '1';
+                        toast.style.transform = 'translateY(0)';
+                        setTimeout(() => {
+                            toast.style.opacity = '0';
+                            toast.style.transform = 'translateY(-5px)';
+                        }, 5000);
+                    }
+                }
+            } catch (err) {
+                console.error("Error updating billing summary:", err);
+            }
+        }
+
+        const debouncedUpdateBillingSummary = debounce(updateBillingSummary, 300);
+
+        function hookGoogleMapsBilling() {
+            if (typeof google === 'undefined' || !google.maps) return;
+            
+            // Hook AutocompleteService
+            if (google.maps.places && google.maps.places.AutocompleteService) {
+                const proto = google.maps.places.AutocompleteService.prototype;
+                if (proto && !proto._billingHooked) {
+                    proto._billingHooked = true;
+                    
+                    const origGetPlacePredictions = proto.getPlacePredictions;
+                    if (origGetPlacePredictions) {
+                        proto.getPlacePredictions = function(...args) {
+                            recordCost('autocomplete');
+                            return origGetPlacePredictions.apply(this, args);
+                        };
+                    }
+                    
+                    const origGetQueryPredictions = proto.getQueryPredictions;
+                    if (origGetQueryPredictions) {
+                        proto.getQueryPredictions = function(...args) {
+                            recordCost('autocomplete');
+                            return origGetQueryPredictions.apply(this, args);
+                        };
+                    }
+                }
+            }
+        }
+
 
         // --- MOCK CANVAS GIS MAP (FOR SANDBOX MODE) ---
         class SandboxMapCanvas {
@@ -2026,10 +2310,12 @@
                 } else {
                     startNewReport(true);
                 }
+                await updateBillingSummary();
             } catch (err) {
                 console.warn("IndexedDB not available (private browsing?). Falling back to in-memory storage.", err);
                 setupInMemoryDatabaseFallback();
                 startNewReport(true);
+                await updateBillingSummary();
             }
 
             // Real-time calculation listeners for run estimates & map reflection
@@ -2188,6 +2474,69 @@
             document.getElementById('btn-close-map-settings').addEventListener('click', closeMapSettings);
             document.getElementById('map-settings-backdrop').addEventListener('click', closeMapSettings);
 
+            // Toggle Billing Popup (Modal)
+            function openBillingPopup() {
+                const backdrop = document.getElementById('billing-backdrop');
+                const popup = document.getElementById('billing-popup');
+                if (backdrop && popup) {
+                    updateBillingSummary();
+                    backdrop.style.display = 'block';
+                    popup.style.display = 'block';
+                    backdrop.offsetHeight; // Force reflow
+                    backdrop.style.opacity = '1';
+                    popup.style.opacity = '1';
+                    popup.style.transform = 'translate(-50%, -50%) scale(1)';
+                }
+            }
+
+            function closeBillingPopup() {
+                const backdrop = document.getElementById('billing-backdrop');
+                const popup = document.getElementById('billing-popup');
+                if (backdrop && popup) {
+                    backdrop.style.opacity = '0';
+                    popup.style.opacity = '0';
+                    popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
+                    setTimeout(() => {
+                        if (popup.style.opacity === '0') {
+                            backdrop.style.display = 'none';
+                            popup.style.display = 'none';
+                        }
+                    }, 300);
+                }
+            }
+
+            document.getElementById('btn-billing-popup').addEventListener('click', openBillingPopup);
+            document.getElementById('btn-close-billing').addEventListener('click', closeBillingPopup);
+            document.getElementById('billing-backdrop').addEventListener('click', closeBillingPopup);
+
+            document.getElementById('btn-save-budget').addEventListener('click', async () => {
+                const inputVal = parseFloat(document.getElementById('modal-budget-input').value);
+                if (isNaN(inputVal) || inputVal <= 0) {
+                    alert("Please enter a valid positive budget amount.");
+                    return;
+                }
+                safetyBudget = inputVal;
+                try {
+                    localStorage.setItem('billing_budget', safetyBudget.toString());
+                } catch (e) {
+                    console.error("Failed to save safety budget to localStorage:", e);
+                }
+                await updateBillingSummary();
+                closeBillingPopup();
+            });
+
+            document.getElementById('btn-reset-ledger').addEventListener('click', async () => {
+                if (confirm("Are you sure you want to reset the billing ledger? All recorded API costs will be cleared.")) {
+                    try {
+                        await db.clearBillingLedger();
+                        await updateBillingSummary();
+                    } catch (e) {
+                        console.error("Failed to reset billing ledger:", e);
+                    }
+                }
+            });
+
+
             // Segmented mode switcher buttons click handlers
             document.getElementById('btn-mode-sandbox').addEventListener('click', () => {
                 const cb = document.getElementById('sandbox-checkbox');
@@ -2248,11 +2597,7 @@
             document.getElementById('btn-close-reports').addEventListener('click', closeReportsDrawer);
             document.getElementById('reports-drawer-backdrop').addEventListener('click', closeReportsDrawer);
 
-            // Exit report view button
-            document.getElementById('btn-exit-report-view').addEventListener('click', (e) => {
-                e.stopPropagation();
-                exitReportView();
-            });
+
 
             // Auto load Google Maps script if API key is stored and sandbox mode was saved as false
             const initialSandbox = document.getElementById('sandbox-checkbox').checked;
@@ -2343,6 +2688,28 @@
                 const logs = memoryStorage.filter(r => r.reportId === reportId);
                 return Promise.resolve(logs);
             };
+
+            const memoryBillingLedger = [];
+            db.addBillingRecord = (type) => {
+                const prices = {
+                    'map': 0.007,
+                    'autocomplete': 0.00283,
+                    'directions': 0.005
+                };
+                const record = {
+                    id: memoryBillingLedger.length + 1,
+                    type: type,
+                    timestamp: new Date().toISOString(),
+                    estimatedCost: prices[type] || 0
+                };
+                memoryBillingLedger.push(record);
+                return Promise.resolve(record.id);
+            };
+            db.getBillingRecords = () => Promise.resolve([...memoryBillingLedger]);
+            db.clearBillingLedger = () => {
+                memoryBillingLedger.length = 0;
+                return Promise.resolve();
+            };
         }
 
         // Updates the total points and queries display in the sidebar panel
@@ -2374,6 +2741,13 @@
             }
             if (queriesEl) {
                 queriesEl.innerText = totalQueries;
+            }
+            
+            // Update estimated run cost
+            const runCost = totalQueries * 0.005;
+            const costEl = document.getElementById('current-run-cost-estimate');
+            if (costEl) {
+                costEl.innerText = `Estimated Run Cost: $${runCost.toFixed(2)}`;
             }
         }
 
@@ -2828,6 +3202,10 @@
             
             map = new google.maps.Map(document.getElementById('google-map'), mapOptions);
             
+            // Record Map load cost and hook places autocomplete queries
+            recordCost('map');
+            hookGoogleMapsBilling();
+            
             // Add map click listener to place/select target location pin
             map.addListener('click', async (e) => {
                 if (!isPinModeActive) return;
@@ -3088,6 +3466,12 @@
             let reportId = null;
             const isSandbox = document.getElementById('sandbox-checkbox').checked;
             
+            // If Google Maps mode and budget is exceeded, prevent starting the run
+            if (!isSandbox && billingBudgetExceeded) {
+                alert("Google Maps API Safety Budget exceeded! Please increase your safety budget or reset the billing ledger to start the run.");
+                return;
+            }
+            
             // Input Validation
             const address = document.getElementById('target-address').value.trim();
             if (!address) {
@@ -3231,9 +3615,15 @@
                     } catch (e) {}
                     
                     // Show in badge
-                    document.getElementById('active-report-badge').style.display = 'flex';
-                    document.getElementById('active-report-name').innerText = defaultName;
-                    document.getElementById('active-report-name').title = defaultName;
+                    const badge = document.getElementById('active-report-badge');
+                    const badgeName = document.getElementById('active-report-name');
+                    if (badge && badgeName) {
+                        const shortAddr = address.split(',')[0].trim();
+                        badgeName.innerText = `Report: ${shortAddr}`;
+                        badgeName.title = `Report: ${address}`;
+                        badge.style.display = 'flex';
+                    }
+
                 } catch (err) {
                     console.error("Failed to create search report in database:", err);
                 }
@@ -3600,6 +3990,11 @@
 
         // Fetches driving route directions
         function fetchDirectionsGoogle(job) {
+            if (billingBudgetExceeded) {
+                engineHalted = true;
+                return Promise.reject(new Error("Google Maps API Billing budget exceeded. Halting execution."));
+            }
+            recordCost('directions');
             const directionsService = new google.maps.DirectionsService();
             
             // Calculate departure date/time
@@ -4014,9 +4409,14 @@
                 } catch (e) {}
                 disableReportFields();
                 
-                document.getElementById('active-report-badge').style.display = 'flex';
-                document.getElementById('active-report-name').innerText = report.name;
-                document.getElementById('active-report-name').title = report.name;
+                const badge = document.getElementById('active-report-badge');
+                const badgeName = document.getElementById('active-report-name');
+                if (badge && badgeName) {
+                    const shortAddr = (report.parameters.targetAddress || '').split(',')[0].trim();
+                    badgeName.innerText = `Report: ${shortAddr}`;
+                    badgeName.title = `Report: ${report.parameters.targetAddress || ''}`;
+                    badge.style.display = 'flex';
+                }
                 
                 closeReportsDrawer();
                 
@@ -4042,7 +4442,7 @@
                 
                 await refreshUIFromDatabase();
                 
-                showRunMessageToast(`Loaded report: ${report.name}`, 'success', true);
+                showRunMessageToast(`Report loaded`, 'success');
             } catch (err) {
                 console.error("Failed to load report:", err);
                 alert("Failed to load report: " + err.message);
@@ -4074,11 +4474,6 @@
                 try {
                     await db.updateReportName(reportId, newName.trim());
                     showRunMessageToast("Report renamed successfully", "success");
-                    
-                    if (activeReportId === reportId) {
-                        document.getElementById('active-report-name').innerText = newName.trim();
-                        document.getElementById('active-report-name').title = newName.trim();
-                    }
                     
                     await refreshSavedReportsUI();
                 } catch (err) {
@@ -4194,7 +4589,9 @@
             try {
                 localStorage.removeItem('active_report_id');
             } catch (e) {}
-            document.getElementById('active-report-badge').style.display = 'none';
+
+            const badge = document.getElementById('active-report-badge');
+            if (badge) badge.style.display = 'none';
             enableReportFields();
             
             const toast = document.getElementById('run-message-toast');
@@ -4364,7 +4761,9 @@
             try {
                 localStorage.removeItem('active_report_id');
             } catch (e) {}
-            document.getElementById('active-report-badge').style.display = 'none';
+
+            const badge = document.getElementById('active-report-badge');
+            if (badge) badge.style.display = 'none';
             enableReportFields();
             
             // Clear toast message
